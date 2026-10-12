@@ -1,0 +1,7 @@
+[submodule "creditmate-ai-fe"]
+	path = creditmate-ai-fe
+	url = https://github.com/avoid-ashraful/creditmate-ai-fe.git
+
+[submodule "creditmate-ai-be"]
+	path = creditmate-ai-be
+	url = https://github.com/avoid-ashraful/creditmate-ai-be.git

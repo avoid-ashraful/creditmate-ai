@@ -1,0 +1,179 @@
+{
+  "at": "2026-10-12T19:00:15.326772+00:00",
+  "session_state": "finalized; restart only after live PID audit",
+  "merged_prs": [
+    {
+      "mergeCommit": {
+        "oid": "7c82755e5d608d88e08c87dd2750a00bc41b3d7b"
+      },
+      "mergedAt": "2026-10-12T18:28:14Z",
+      "number": 73,
+      "state": "MERGED",
+      "title": "Preserve unknown credit card fees and APR as null",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai/pull/73",
+      "repository": "creditmate-ai"
+    },
+    {
+      "mergeCommit": {
+        "oid": "1228737e97b79740365f1aa7f482455c78080f14"
+      },
+      "mergedAt": "2026-10-12T18:28:30Z",
+      "number": 74,
+      "state": "MERGED",
+      "title": "Use normalized frontend card data from Django",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai/pull/74",
+      "repository": "creditmate-ai"
+    },
+    {
+      "mergeCommit": {
+        "oid": "d3e32a08930e13e9e3f91d14d16f1e0d59bcc396"
+      },
+      "mergedAt": "2026-10-12T18:28:42Z",
+      "number": 75,
+      "state": "MERGED",
+      "title": "Fix HomePage API tests and dependency installation",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai/pull/75",
+      "repository": "creditmate-ai"
+    },
+    {
+      "mergeCommit": {
+        "oid": "726ad88c6035a89ba60474fe25c6394c0bd75f34"
+      },
+      "mergedAt": "2026-10-12T18:28:54Z",
+      "number": 76,
+      "state": "MERGED",
+      "title": "Integrate verified Redis caching and card API contracts",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai/pull/76",
+      "repository": "creditmate-ai"
+    },
+    {
+      "mergeCommit": {
+        "oid": "581f2a03242626aebcf3d256409bdda71ce673f4"
+      },
+      "mergedAt": "2026-10-12T18:27:40Z",
+      "number": 3,
+      "state": "MERGED",
+      "title": "Normalize Django card responses and preserve unknown data",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai-fe/pull/3",
+      "repository": "creditmate-ai-fe"
+    },
+    {
+      "mergeCommit": {
+        "oid": "81a0371d7b2c4a74ea063d98d138ff7351882bac"
+      },
+      "mergedAt": "2026-10-12T18:27:53Z",
+      "number": 4,
+      "state": "MERGED",
+      "title": "Verify HomePage search, filters and comparison with MSW",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai-fe/pull/4",
+      "repository": "creditmate-ai-fe"
+    },
+    {
+      "mergeCommit": {
+        "oid": "1e855611f06a8232226fe0642f788973d0b69fc7"
+      },
+      "mergedAt": "2026-10-12T18:44:04Z",
+      "number": 5,
+      "state": "MERGED",
+      "title": "Add category browsing with real API pagination",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai-fe/pull/5",
+      "repository": "creditmate-ai-fe"
+    },
+    {
+      "mergeCommit": {
+        "oid": "0252179aabb4e745d0957386c5c19658142f8a06"
+      },
+      "mergedAt": "2026-10-12T18:58:10Z",
+      "number": 6,
+      "state": "MERGED",
+      "title": "Add readable user guides and restore route metadata",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai-fe/pull/6",
+      "repository": "creditmate-ai-fe"
+    },
+    {
+      "mergeCommit": {
+        "oid": "702681f5a87c48469545753c4ff7ef93b3b83718"
+      },
+      "mergedAt": "2026-10-12T18:28:04Z",
+      "number": 8,
+      "state": "MERGED",
+      "title": "Cache card API queries with transaction-safe invalidation",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai-be/pull/8",
+      "repository": "creditmate-ai-be"
+    },
+    {
+      "mergeCommit": {
+        "oid": "679dda7b94b5667b66660b47448faf4692f87643"
+      },
+      "mergedAt": "2026-10-12T18:47:24Z",
+      "number": 9,
+      "state": "MERGED",
+      "title": "Add crawler quality scoring and safe numeric extraction",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai-be/pull/9",
+      "repository": "creditmate-ai-be"
+    },
+    {
+      "mergeCommit": {
+        "oid": "75897e1f8be779052285e0dfc2b18e70b5364a2a"
+      },
+      "mergedAt": "2026-10-12T18:58:10Z",
+      "number": 10,
+      "state": "MERGED",
+      "title": "Publish user guides and align crawler documentation",
+      "url": "https://github.com/avoid-ashraful/creditmate-ai-be/pull/10",
+      "repository": "creditmate-ai-be"
+    }
+  ],
+  "accepted_pins": {
+    "frontend": "0456fb98c025b4f384cabc02ddf532baa6726f62",
+    "backend": "82c0289d04b28628ed5952de25d5e75876c33a40"
+  },
+  "checks": {
+    "frontend": "Final integrated category+guides+QA: clean npmci,78 tests/10suites, types, full lint, build all0",
+    "backend": "Cache+quality exact tree:818 tests, flake8,banksmigration checks0; guides/docs-only changes reviewed separately",
+    "cache": "366 full tests both locmem and dedicated RedisDB14"
+  },
+  "tasks": {
+    "1.1_1.2": "nullable baseline/API adapter merged",
+    "1.3": "merged, locally verified",
+    "3.1": "merged; test-only followup91b4c85 preserved in worker, not required for feature merge",
+    "5.1": "merged, locally verified",
+    "9.1": "FE6 and BE10 merged; runtime SEO only, no deployment/static crawler proof",
+    "2.1": "local implementation merged BE9; actual deployment/liveLLM/crawls/productionbeat pending",
+    "1.4": {
+      "state": "committed,386 standalone tests and changedlint passed; combined cache+quality+rate check not executed, merge held",
+      "source": "689989d260b3659b27723308314387d02d6563cb",
+      "parent": "1a27b3f004a027b675ee077a66b88af68ba11cd1",
+      "integration": "1ead405cda9b9a6e4d67bc20198529739d17e710"
+    },
+    "4.1": {
+      "state": "committed QA+tokens,91 source tests/types/lint/build passed; final category+guide+token integration not checked, merge held; runner ended provider quota",
+      "source": "f278e1a34c9990895039f6da48338b4b457db4b3",
+      "dirty": "?? build/"
+    },
+    "5.2": {
+      "state": "committed partial runnable subset,33 tests across three breakpoints pass; full quiz/calculator/category coverage pending, not complete and not merged",
+      "source": "7d6d482eaf2f488eb8bf8d2e0bc892bb9e81d964",
+      "parent": "fcf8318bab7fd6227eeea9e1bb67f07a7011a66e"
+    },
+    "6.1": {
+      "state": "initial implementation483 real-engine tests passed, final review found automatic-scheduling/concurrency blockers. Corrective source uncommitted/unverified after MiMo quota; do not merge",
+      "source": "2e0a56f8721b9e98a39898e8a1cf87b04614d33a",
+      "dirty": "M credit_mate_ai/celery.py\n M search/models.py\n M search/queue.py\n M search/signals.py\n M search/tasks.py\n?? search/migrations/0002_searchindexupdate_claimed_at_and_more.py"
+    },
+    "8.1": {
+      "state": "local CI/container implementation checked and committed, workflow left unpublished to keep remoteCI pending; GHCR/staging/deploy pending",
+      "parent": "bf30c7ee456220bb17673c72b3e371ecf6f86623",
+      "frontend": "55c11bd7cd1d1046bb9dce5d9a9f909dd8027656",
+      "backend": "813dee08893f2a18104aa442666336d3e5c68a10"
+    }
+  },
+  "remote_ci": "pending by explicit user instruction; no dispatch/deploy or remote green claim",
+  "SUBMODULE_TOKEN": "not configured: dedicated read-only token unavailable; do not reuse broad gh OAuth",
+  "model_status": "MiMo-v2.6-flash-free exhausted quota during finalization; Step5 previously quota-limited; GLM runner useful but initial response latency high. No verified Nemotron speed win. Choose available model next session.",
+  "original_workspace": "inherited dirty frontend preserved; original parent local master was not reset/pulled",
+  "local_control": "/home/ubuntu/credit-agent-control",
+  "worker_roots": "/home/ubuntu/credit-workers",
+  "known_pending": "backend lounge sentinel classification; preexisting global APR migration drift; CRA dependency-security task8.5; all remaining tasks inTASK_BREAKDOWN.md",
+  "managers": "STOP/STOP_OPENCODE retained; schedulers stopped, do not duplicate live workers"
+}
