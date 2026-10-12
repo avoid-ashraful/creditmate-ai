@@ -1,0 +1,425 @@
+[
+  {
+    "title": "[Stream 1] Fix Database Schema - Nullable Critical Fields",
+    "labels": [
+      "stream:1",
+      "priority:P0",
+      "effort:2 days"
+    ],
+    "body": "## Stream 1 - Task 1.1\n**Priority**: P0 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 1] Connect Frontend to Backend API",
+    "labels": [
+      "stream:1",
+      "priority:P0",
+      "effort:3 days"
+    ],
+    "body": "## Stream 1 - Task 1.2\n**Priority**: P0 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 1] Redis Caching Layer",
+    "labels": [
+      "stream:1",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 1 - Task 1.3\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 1] API Rate Limiting & Request Validation",
+    "labels": [
+      "stream:1",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 1 - Task 1.4\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 1] Error Tracking (Sentry) Integration",
+    "labels": [
+      "stream:1",
+      "priority:P1",
+      "effort:1 day"
+    ],
+    "body": "## Stream 1 - Task 1.5\n**Priority**: P1 | **Effort**: 1 day\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 2] Deploy Improved Crawler with Quality Scoring",
+    "labels": [
+      "stream:2",
+      "priority:P0",
+      "effort:4 days"
+    ],
+    "body": "## Stream 2 - Task 2.1\n**Priority**: P0 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 2] Data Quality Dashboard",
+    "labels": [
+      "stream:2",
+      "priority:P0",
+      "effort:3 days"
+    ],
+    "body": "## Stream 2 - Task 2.2\n**Priority**: P0 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 2] Manual Review Queue",
+    "labels": [
+      "stream:2",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 2 - Task 2.3\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 2] Multi-Source Validation",
+    "labels": [
+      "stream:2",
+      "priority:P1",
+      "effort:4 days"
+    ],
+    "body": "## Stream 2 - Task 2.4\n**Priority**: P1 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 2] Historical Tracking & Change Detection",
+    "labels": [
+      "stream:2",
+      "priority:P2",
+      "effort:3 days"
+    ],
+    "body": "## Stream 2 - Task 2.5\n**Priority**: P2 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 3] Category-Based Browsing",
+    "labels": [
+      "stream:3",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 3 - Task 3.1\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 3] Smart Recommendation Quiz",
+    "labels": [
+      "stream:3",
+      "priority:P0",
+      "effort:4 days"
+    ],
+    "body": "## Stream 3 - Task 3.2\n**Priority**: P0 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 3] Annual Fee vs Rewards Calculator",
+    "labels": [
+      "stream:3",
+      "priority:P0",
+      "effort:3 days"
+    ],
+    "body": "## Stream 3 - Task 3.3\n**Priority**: P0 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 3] Card Detail Deep-Dive Pages",
+    "labels": [
+      "stream:3",
+      "priority:P0",
+      "effort:4 days"
+    ],
+    "body": "## Stream 3 - Task 3.4\n**Priority**: P0 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 3] \"Why This Card Wins\" AI Narratives",
+    "labels": [
+      "stream:3",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 3 - Task 3.5\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 3] Mobile-First Comparison Table",
+    "labels": [
+      "stream:3",
+      "priority:P0",
+      "effort:3 days"
+    ],
+    "body": "## Stream 3 - Task 3.6\n**Priority**: P0 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 4] Design Token System",
+    "labels": [
+      "stream:4",
+      "priority:P0",
+      "effort:3 days"
+    ],
+    "body": "## Stream 4 - Task 4.1\n**Priority**: P0 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 4] Storybook Component Library",
+    "labels": [
+      "stream:4",
+      "priority:P1",
+      "effort:4 days"
+    ],
+    "body": "## Stream 4 - Task 4.2\n**Priority**: P1 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 4] WCAG 2.1 AA Compliance",
+    "labels": [
+      "stream:4",
+      "priority:P1",
+      "effort:4 days"
+    ],
+    "body": "## Stream 4 - Task 4.3\n**Priority**: P1 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 4] Dark Mode Support",
+    "labels": [
+      "stream:4",
+      "priority:P2",
+      "effort:3 days"
+    ],
+    "body": "## Stream 4 - Task 4.4\n**Priority**: P2 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 4] Micro-interactions & Motion",
+    "labels": [
+      "stream:4",
+      "priority:P2",
+      "effort:2 days"
+    ],
+    "body": "## Stream 4 - Task 4.5\n**Priority**: P2 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 5] Fix HomePage Test (Mock API)",
+    "labels": [
+      "stream:5",
+      "priority:P0",
+      "effort:1 day"
+    ],
+    "body": "## Stream 5 - Task 5.1\n**Priority**: P0 | **Effort**: 1 day\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 5] Playwright E2E Tests (10 Critical Paths)",
+    "labels": [
+      "stream:5",
+      "priority:P0",
+      "effort:4 days"
+    ],
+    "body": "## Stream 5 - Task 5.2\n**Priority**: P0 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 5] Visual Regression Testing",
+    "labels": [
+      "stream:5",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 5 - Task 5.3\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 5] API Contract Tests",
+    "labels": [
+      "stream:5",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 5 - Task 5.4\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 5] Performance Budgets & Monitoring",
+    "labels": [
+      "stream:5",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 5 - Task 5.5\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 5] Load Testing (k6)",
+    "labels": [
+      "stream:5",
+      "priority:P2",
+      "effort:2 days"
+    ],
+    "body": "## Stream 5 - Task 5.6\n**Priority**: P2 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 6] Elasticsearch/Meilisearch Setup",
+    "labels": [
+      "stream:6",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 6 - Task 6.1\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 6] Search Autocomplete & Facets",
+    "labels": [
+      "stream:6",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 6 - Task 6.2\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 6] Advanced Search Features",
+    "labels": [
+      "stream:6",
+      "priority:P2",
+      "effort:2 days"
+    ],
+    "body": "## Stream 6 - Task 6.3\n**Priority**: P2 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 7] Authentication System",
+    "labels": [
+      "stream:7",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 7 - Task 7.1\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 7] Saved Comparisons & Collections",
+    "labels": [
+      "stream:7",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 7 - Task 7.2\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 7] Email Alerts & Notifications",
+    "labels": [
+      "stream:7",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 7 - Task 7.3\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 7] Community Reviews",
+    "labels": [
+      "stream:7",
+      "priority:P2",
+      "effort:4 days"
+    ],
+    "body": "## Stream 7 - Task 7.4\n**Priority**: P2 | **Effort**: 4 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 8] GitHub Actions CI Pipeline",
+    "labels": [
+      "stream:8",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 8 - Task 8.1\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 8] Staging Environment",
+    "labels": [
+      "stream:8",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 8 - Task 8.2\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 8] Production Kubernetes Configs",
+    "labels": [
+      "stream:8",
+      "priority:P1",
+      "effort:3 days"
+    ],
+    "body": "## Stream 8 - Task 8.3\n**Priority**: P1 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 8] Monitoring & Alerting",
+    "labels": [
+      "stream:8",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 8 - Task 8.4\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 8] Security Hardening",
+    "labels": [
+      "stream:8",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 8 - Task 8.5\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 9] User Guides & How-Tos",
+    "labels": [
+      "stream:9",
+      "priority:P2",
+      "effort:3 days"
+    ],
+    "body": "## Stream 9 - Task 9.1\n**Priority**: P2 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 9] Bengali Glossary & Localization Prep",
+    "labels": [
+      "stream:9",
+      "priority:P2",
+      "effort:3 days"
+    ],
+    "body": "## Stream 9 - Task 9.2\n**Priority**: P2 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 9] API Documentation",
+    "labels": [
+      "stream:9",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 9 - Task 9.3\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 9] Developer Documentation",
+    "labels": [
+      "stream:9",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 9 - Task 9.4\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 10] Event Tracking Implementation",
+    "labels": [
+      "stream:10",
+      "priority:P0",
+      "effort:2 days"
+    ],
+    "body": "## Stream 10 - Task 10.1\n**Priority**: P0 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 10] Conversion Funnel Dashboard",
+    "labels": [
+      "stream:10",
+      "priority:P1",
+      "effort:2 days"
+    ],
+    "body": "## Stream 10 - Task 10.2\n**Priority**: P1 | **Effort**: 2 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 10] A/B Testing Framework",
+    "labels": [
+      "stream:10",
+      "priority:P2",
+      "effort:3 days"
+    ],
+    "body": "## Stream 10 - Task 10.3\n**Priority**: P2 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  },
+  {
+    "title": "[Stream 10] SEO & Content Strategy",
+    "labels": [
+      "stream:10",
+      "priority:P2",
+      "effort:3 days"
+    ],
+    "body": "## Stream 10 - Task 10.4\n**Priority**: P2 | **Effort**: 3 days\n\n### Description\nSee TASK_BREAKDOWN.md for detailed acceptance criteria.\n\n### Definition of Done\n- [ ] Code complete & reviewed\n- [ ] Tests passing (unit + e2e if applicable)\n- [ ] Deployed to staging\n- [ ] Demoed to Product Owner\n- [ ] Documentation updated\n"
+  }
+]
