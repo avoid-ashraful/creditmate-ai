@@ -1,293 +1,168 @@
 # CreditMate AI - k6 Load Testing Suite
 
-This directory contains k6 load test scripts for the CreditMate AI public API endpoints.
+k6 scenarios for the public, read-only credit-card API. Every request is a `GET` against a route the
+backend serves today. Endpoint names and query parameters are taken from the backend source
+(`credit_mate_ai/urls.py`, `credit_cards/api/urls.py`, `filters.py`, `advanced_filters.py`,
+`advanced_views.py`) and throttle values from `credit_mate_ai/settings.py`.
 
-## Quick Start
+## Quick start
 
 ```bash
-# Install k6 (if not installed)
-# macOS: brew install k6
-# Linux: sudo gpg -k && sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69 && echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list && sudo apt-get update && sudo apt-get install k6
-# Windows: choco install k6
-
-# Run smoke test (quick validation)
-k6 run -e BASE_URL=http://localhost:8000 smoke.js
-
-# Run average load test (5-10 min)
-k6 run -e BASE_URL=http://localhost:8000 average-load.js
-
-# Run stress test (find breaking point)
-k6 run -e BASE_URL=http://localhost:8000 stress.js
-
-# Run spike test (sudden burst)
-k6 run -e BASE_URL=http://localhost:8000 spike.js
+# k6 binary: put it on PATH, or point K6 at it
+./run.sh inspect                                  # k6 inspect on every script
+./run.sh stub smoke                               # local stub on a random port 4000-4999, then smoke
+./run.sh run smoke http://localhost:8000          # against a URL you name explicitly
+./run.sh run average http://localhost:8000        # ~16 min; see scenario table
 ```
 
-## Scripts Overview
+No `make` or `npm` is needed. `run.sh` only contacts the stub it starts or a `BASE_URL` you pass on the
+command line.
 
-| Script | Purpose | Duration | VUs | Use Case |
-|--------|---------|----------|-----|----------|
-| `smoke.js` | Basic functionality check | 30s | 1 | CI/CD, pre-deploy |
-| `average-load.js` | Realistic sustained traffic | ~16 min | 50-100 | Baseline, regression |
-| `stress.js` | Beyond capacity limits | ~18 min | 100-500 | Capacity planning |
-| `spike.js` | Sudden traffic burst | ~5 min | 50-500 | Auto-scaling, recovery |
+### Installing k6
+
+Official releases: https://github.com/grafana/k6/releases. Verify the tarball against the release's
+`k6-vX.Y.Z-checksums.txt` before use (`sha256sum -c`). Without root, extract the binary into
+`~/.local/bin`. On macOS, `brew install k6`. On Debian/Ubuntu with root, use the k6 apt repository.
+
+Validated with k6 v2.3.0 (linux/arm64).
+
+## Scenarios
+
+| Script | Purpose | Duration | Load shape |
+|--------|---------|----------|------------|
+| `smoke.js` | Every endpoint once per iteration | 30s | 1 VU constant |
+| `average-load.js` | Weighted user mix, sustained traffic | ~16 min | ramp to 50 then 100 VUs |
+| `stress.js` | Find where latency and errors break | ~18 min | ramp to 500 VUs |
+| `spike.js` | Burst, then recovery | ~5 min | 50 → 500 → 50 VUs |
+
+`average-load.js` mix: list 40%, detail 25%, typeahead 20%, advanced search 10%, health 5%.
 
 ## Configuration
 
-### Environment Variables
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `BASE_URL` | `http://localhost:8000` | Origin only, no trailing slash |
+| `HEALTH_PATH` | `/health/` | Health route, relative to `BASE_URL` and **not** under `/api/v1` |
+| `RESULTS_DIR` (run.sh) | `load-tests/results` | Where `<scenario>-results.json` and the stub log go |
+| `K6` (run.sh) | `k6` | k6 binary to use |
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BASE_URL` | `http://localhost:8000` | API base URL (no trailing slash) |
+`HEALTH_PATH` exists because `/api/healthz/` and `/api/readyz/` are planned but not yet routed. Set
+`HEALTH_PATH=/api/healthz/` once they land.
 
-```bash
-# Override base URL
-k6 run -e BASE_URL=https://staging.creditmate.ai smoke.js
+## Endpoints exercised
 
-# Multiple variables
-k6 run -e BASE_URL=http://api:8000 -e SCENARIO=smoke smoke.js
-```
+All paths are relative to `BASE_URL`. Only `GET` is used.
 
-### Thresholds (Shared)
+| Method | Path | Parameters used by the suite | Notes |
+|--------|------|------------------------------|-------|
+| GET | `/health/` | none | Root route, `credit_mate_ai/urls.py`. Override with `HEALTH_PATH`. |
+| GET | `/api/v1/credit-cards/` | `bank_name`, `annual_fee_min`, `annual_fee_max`, `has_lounge_access`, `no_annual_fee`, `search`, `ordering` | Paginated `{count, next, previous, results}`. `ordering` accepts `name`, `annual_fee`, `interest_rate_apr`, `lounge_access_international`, `lounge_access_domestic`, `created_at`, `updated_at`, each with optional `-`. |
+| GET | `/api/v1/credit-cards/{id}/` | none | Card IDs come from the list in `setup()`. Setup fails the run if the list is empty. |
+| GET | `/api/v1/credit-cards/search-suggestions/` | `q` (sent by smoke only) | **The backend view does not read `q`.** The parameter is sent to match the documented route but has no effect today. |
+| GET | `/api/v1/credit-cards/typeahead/` | `q` | `q` needs at least 2 characters. Shorter input returns 200 with `match_policy.active = false`. Only the first 100 characters are used. |
+| GET | `/api/v1/credit-cards/advanced-search/` | `search`, `categories` (comma-separated slugs), `bank_name`, `annual_fee_min/max`, `has_lounge_access`, `has_international_lounge`, `has_domestic_lounge`, `has_annual_fee`, `no_annual_fee`, `has_fee_waiver`, `interest_rate_min/max`, `ordering`, `page`, `page_size`, `facets` | Returns `results`, `facets`, `normalized_query`, plus `sort_options` and `categories`. `ordering` accepts `name`, `annual_fee`, `interest_rate_apr`, lounge fields, `created`, `modified`, each with optional `-`. |
+| GET | `/api/v1/credit-cards/advanced-search/sort-options/` | none | Returns `sort_options`. |
+| GET | `/api/v1/credit-cards/advanced-search/categories/` | none | Returns `categories` (canonical taxonomy). |
+| GET | `/api/v1/credit-cards/advanced-search/normalize/` | same as advanced-search | Returns `normalized_query` and `query_hash`. |
 
-All scenarios enforce these core thresholds (from Task 5.6 acceptance criteria):
+Unknown query parameters are silently ignored by the backend. Earlier drafts sent `category`, `sort`, and
+`bank`, which have no effect. The suite now uses only the names listed above.
 
-- **p95 latency** < 200ms (smoke/average) / < 500ms (stress/spike)
-- **p99 latency** < 500ms (smoke/average) / < 1000ms (stress/spike)
-- **Error rate** < 1% (smoke/average) / < 5% (stress/spike)
-- **Check pass rate** > 99% (smoke/average) / > 95% (stress/spike)
+## Thresholds
 
-### Rate Limit Handling (429 Responses)
+Each metric appears once per scenario, so the p95 and p99 limits are both enforced.
 
-The backend enforces these limits (from `credit_mate_ai/settings.py`):
+| Scenario | `http_req_duration{type:api}` | `http_req_failed` | `checks` |
+|----------|-------------------------------|-------------------|----------|
+| smoke, average | `p(95)<200`, `p(99)<500` | `rate<0.01` | `rate>0.99` |
+| stress, spike | `p(95)<500`, `p(99)<1000` | `rate<0.05` | `rate>0.95` |
 
-```
-Anonymous:  100 requests/minute  (THROTTLE_RATE_ANON)
-Authenticated: 1000 requests/minute (THROTTLE_RATE_USER)
-Burst:      10 requests/second   (THROTTLE_RATE_BURST)
-```
+`http_req_failed` counts only responses outside 200–399 **other than 429** (see below), plus network
+errors. A 404 or 5xx counts as a failure.
 
-**How k6 handles 429s:**
+Per-request latency checks inside the scripts (for example `list: < 200ms`) are separate from these
+thresholds. They feed the `checks` rate.
 
-1. **429s are NOT counted as errors** - They're tracked via custom metrics:
-   - `rate_limited_429_total` - Counter of 429 responses
-   - `rate_limited_429_rate` - Rate of 429 responses
+## Rate limiting (429)
 
-2. **Retry-After header** is read and logged (but k6 doesn't auto-retry)
+From `credit_mate_ai/settings.py` (`DEFAULT_THROTTLE_RATES`, each overridable by env var):
 
-3. **Thresholds exclude 429** - The `http_req_failed` metric only counts 5xx and network errors
+| Scope | Default | Env var | Keyed by |
+|-------|---------|---------|----------|
+| anon | 100/min | `THROTTLE_RATE_ANON` | `REMOTE_ADDR` (unauthenticated) |
+| user | 1000/min | `THROTTLE_RATE_USER` | user id, or `REMOTE_ADDR` when anonymous |
+| burst | 10/sec | `THROTTLE_RATE_BURST` | user id, or `REMOTE_ADDR` when anonymous |
 
-4. **Expected behavior per scenario:**
-   - **Smoke**: 1 VU, 30s → Should see 0-5 429s (well within 100/min)
-   - **Average**: 50-100 VUs sustained → Will hit anon limits, expect 429s
-   - **Stress**: 100-500 VUs → Heavy 429s expected, tests throttling behavior
-   - **Spike**: 500 VUs burst → Massive 429s, tests burst protection (10/sec)
+`TrustedClientRateThrottle` (`credit_mate_ai/throttling.py`) checks burst, then user, then anon. For
+anonymous traffic the anon limit (100/min per IP) is the stricter one and is the effective ceiling. The
+suite sends no credentials, so every virtual user from one machine shares one IP bucket. Expect 429s
+from the average, stress, and spike scenarios when run from a single host.
 
-## Output Formats
+How the suite handles 429:
 
-### JSON (Default)
-```bash
-k6 run --out json=results.json smoke.js
-```
-Produces `results.json` with full metrics for post-processing.
+- 429 is an accepted response for the status checks. It is not a failure, so it does not trip
+  `http_req_failed`.
+- It is counted in `rate_limited_429_total` (count) and `rate_limited_429_rate` (rate).
+- Latency is recorded only for non-429 responses, so throttling does not distort the latency numbers.
+- k6 does not retry, and `Retry-After` is not read.
 
-### Prometheus Remote Write (Grafana)
-Requires k6 built with `xk6-output-prometheus-remote`:
-```bash
-# Build custom k6
-xk6 build --with github.com/grafana/xk6-output-prometheus-remote
+To measure backend latency without the throttle, run from several source IPs, or raise
+`THROTTLE_RATE_*` on a dedicated test environment. Do not change production limits for this.
 
-# Run with Prometheus remote write
-./k6 run --out experimental-prometheus-rw=http://prometheus:9090/api/v1/write smoke.js
-```
+## Output
 
-### Summary Report (stdout)
-Each script outputs a structured JSON summary to stdout and a `.json` file:
-- `smoke-results.json`
-- `average-load-results.json`
-- `stress-results.json`
-- `spike-results.json`
+Each scenario writes `<scenario>-results.json` to the current directory (`RESULTS_DIR` under `run.sh`)
+and prints the same JSON to stdout. Fields:
 
-## Results Interpretation Guide
+- `allThresholdsPassed` and `thresholds[]` (each threshold with `ok`)
+- `configuredThresholds` (what the script asked for)
+- `metrics` for `http_req*`, `checks`, `api_latency`, `rate_limited_*`, and `recovery_latency` (spike)
 
-### Key Metrics to Watch
-
-| Metric | Healthy | Warning | Critical |
-|--------|---------|---------|----------|
-| `http_req_duration p(95)` | < 200ms | 200-500ms | > 500ms |
-| `http_req_duration p(99)` | < 500ms | 500-1000ms | > 1000ms |
-| `http_req_failed rate` | < 0.1% | 0.1-1% | > 1% |
-| `rate_limited_429_rate` | < 5% (avg) | 5-20% | > 20% (unexpected) |
-| `checks pass rate` | > 99% | 95-99% | < 95% |
-
-### Analyzing 429 Rate Limiting
-
-**Expected 429 rates by scenario:**
-
-| Scenario | VUs | Expected 429 Rate | Reason |
-|----------|-----|-------------------|--------|
-| Smoke | 1 | ~0% | Well below 100/min |
-| Average | 50-100 | 10-30% | Exceeds anon 100/min |
-| Stress | 100-500 | 30-70% | Far exceeds limits |
-| Spike | 500 | 60-90% | Burst exceeds 10/sec |
-
-**If 429 rate is LOWER than expected:**
-- Rate limiting may not be enforced (check middleware)
-- Requests may be authenticated (higher 1000/min limit)
-
-**If 429 rate is HIGHER than expected:**
-- Burst limit (10/sec) may be stricter than configured
-- Check `Retry-After` header values in responses
-
-### Bottleneck Identification
-
-**High latency + low 429 + low error rate:**
-- Database query optimization needed
-- Missing indexes on filter fields
-- Cache miss rate high (check Redis hit rate)
-
-**High latency + high 429:**
-- Throttling working correctly
-- Consider increasing limits or adding caching
-
-**High error rate (5xx):**
-- Application crashes under load
-- Connection pool exhaustion
-- Memory/CPU saturation
-
-**Spike test recovery latency >> normal latency:**
-- Slow scale-down / connection drain
-- Cache cold after spike
-- Database connection pool not recovering
-
-### Grafana Dashboard Queries
+Requests are tagged `type=api` and `endpoint=<name>`, and overload runs also carry `phase=<name>`. Use
+those tags to break results down in Prometheus or k6 Cloud.
 
 ```promql
-# p95 latency per endpoint
+# p95 latency, all API requests
 histogram_quantile(0.95, rate(http_req_duration_bucket{type="api"}[5m]))
 
 # 429 rate
 rate(rate_limited_429_total[5m])
 
-# Error rate (excluding 429)
+# Error rate (429 excluded)
 rate(http_req_failed[5m])
-
-# Throughput
-rate(http_reqs[5m])
-
-# Active VUs
-active_vus
 ```
 
-## Local Validation (No Backend Required)
+## Local validation with the stub
 
-### Syntax Check (Node.js)
+`stub/server.py` is a `ThreadingHTTPServer` that serves the same paths and response shapes as the
+backend (`/health/`, `/api/v1/credit-cards/...`). It has 25 fixture cards, and detail IDs 1–25 exist.
+
+It does **not** filter, rank, paginate beyond a fixed slice, or throttle. Use it to check routing,
+parameter handling, and script logic. It cannot show backend performance or the 429 path.
+
 ```bash
-# Check all scripts for syntax errors
-node --check config.js
-node --check smoke.js
-node --check average-load.js
-node --check stress.js
-node --check spike.js
-
-# Or all at once
-for f in *.js; do echo "Checking $f..."; node --check "$f"; done
+./run.sh stub smoke     # random port 4000-4999; stub stopped on exit
 ```
 
-### Run Against HTTP Stub (Python)
+Negative control: with `HEALTH_PATH=/api/healthz/` (not served by the stub), smoke fails on the health
+404s and exits 99.
+
+## Validation without a backend
+
 ```bash
-# Terminal 1: Start stub server (serves mock responses)
-cd load-tests
-python3 -m http.server 8000 --bind 127.0.0.1 -d stub/
-
-# Terminal 2: Run smoke test
-k6 run -e BASE_URL=http://localhost:8000 smoke.js
+./run.sh inspect        # k6 inspect for all four scripts (parses and reports options and thresholds)
+k6 inspect smoke.js | python3 -c 'import json,sys; print(json.load(sys.stdin)["thresholds"])'
 ```
 
-Create `load-tests/stub/` with mock JSON responses matching API schema:
-```
-stub/
-├── api/
-│   └── v1/
-│       ├── health/
-│       │   └── index.json          # {"status": "ok"}
-│       ├── credit-cards/
-│       │   ├── index.json          # Paginated list response
-│       │   └── advanced-search/
-│       │       └── index.json      # Search results
-│       └── search-suggestions/
-│           └── index.json          # Typeahead suggestions
-```
-
-### k6 Inspect (Validate Script Structure)
-```bash
-# Show script configuration without running
-k6 inspect smoke.js
-
-# Show thresholds
-k6 inspect --format=json smoke.js | jq '.thresholds'
-```
-
-## CI/CD Integration
-
-### GitHub Actions Example
-```yaml
-- name: Run Smoke Tests
-  run: |
-    k6 run -e BASE_URL=${{ env.API_URL }} load-tests/smoke.js
-    
-- name: Run Load Tests (on schedule)
-  if: github.event_name == 'schedule'
-  run: |
-    k6 run -e BASE_URL=${{ env.STAGING_URL }} \
-      --out json=results.json \
-      load-tests/average-load.js
-      
-- name: Upload Results
-  uses: actions/upload-artifact@v4
-  with:
-    name: k6-results
-    path: *-results.json
-```
+`node --check <script>` only parses the file. It passes on these scripts but does not catch unknown k6 APIs, bad thresholds, or wrong options. Use `k6 inspect` for that.
 
 ## Troubleshooting
 
-### "Connection refused" / "No route to host"
-- Verify `BASE_URL` is correct and server is running
-- Check firewall / network policies
-
-### "Script validation failed" / Syntax errors
-- Run `node --check script.js` to find JS syntax issues
-- k6 uses ES6 modules - ensure `import`/`export` syntax
-
-### High memory usage
-- Use `discardResponseBodies: true` (already set)
-- Reduce VU count or duration
-- Use `--no-summary` to reduce output buffer
-
-### Thresholds failing unexpectedly
-- Check if backend is actually running at `BASE_URL`
-- Verify rate limits match expectations (check `settings.py`)
-- Ensure test data (card IDs) exists in test database
-
-## File Structure
-
-```
-load-tests/
-├── config.js           # Shared configuration, thresholds, helpers
-├── smoke.js            # Smoke test (30s, 1 VU)
-├── average-load.js     # Average load (~16 min, 50-100 VUs)
-├── stress.js           # Stress test (~18 min, 100-500 VUs)
-├── spike.js            # Spike test (~5 min, 50-500 VUs)
-├── README.md           # This file
-└── stub/               # (Optional) Mock responses for local validation
-    └── api/v1/...
-```
-
-## References
-
-- [k6 Documentation](https://k6.io/docs/)
-- [k6 JavaScript API](https://k6.io/docs/javascript-api/)
-- [Thresholds](https://k6.io/docs/using-k6/thresholds/)
-- [Output Formats](https://k6.io/docs/results-visualization/)
-- Backend rate limits: `/home/ubuntu/credit-workers/integration/creditmate-ai-be/credit_mate_ai/settings.py` lines 309-316
+- **All requests fail with connection errors**: check `BASE_URL` and that the server is up. For the stub,
+  check `RESULTS_DIR/stub.log`.
+- **`setup: list returned no cards`**: the list endpoint returned zero results. Check the target has
+  active cards (`is_active=True`).
+- **Smoke fails on health with 404**: `HEALTH_PATH` points at a route the target does not serve.
+- **Many 429s**: expected from one IP at this request rate. See "Rate limiting".
+- **`http_req_failed` above threshold**: look for 5xx or 404 responses. A 404 on detail means the card ID
+  from the list is no longer served.

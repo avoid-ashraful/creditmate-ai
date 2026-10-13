@@ -1,175 +1,131 @@
 /**
- * Shared k6 Configuration
- * 
- * All scenarios import this module for common settings:
- * - BASE_URL (defaults to http://localhost:8000)
- * - Thresholds (p95 latency, error rate < 1%)
- * - Rate limit handling (429 as distinct counter)
- * - Common headers and helper functions
+ * Shared k6 configuration for the CreditMate AI load-test suite.
+ *
+ * Every endpoint path below mirrors the real backend routing:
+ *   - credit_mate_ai/urls.py        -> /health/ (root, legacy health check)
+ *   - credit_cards/api/urls.py      -> /api/v1/credit-cards/...
+ *   - credit_cards/api/filters.py   -> list filter names
+ *   - credit_cards/api/advanced_filters.py -> advanced-search filter names
+ *   - credit_mate_ai/settings.py    -> throttle rates
  */
 
-// Base URL for the API - override with: k6 run -e BASE_URL=http://your-api:8000 script.js
-export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8000';
+import http from 'k6/http';
 
-// API version prefix
-export const API_PREFIX = '/api/v1';
+// Base URL, no trailing slash. Override: k6 run -e BASE_URL=http://127.0.0.1:4123 smoke.js
+export const BASE_URL = (__ENV.BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 
-// Common headers for all requests
+// Health endpoint path, relative to BASE_URL (NOT under /api/v1).
+// Default is the root /health/ route. Override with -e HEALTH_PATH=/api/healthz/ once that route exists.
+export const HEALTH_PATH = __ENV.HEALTH_PATH || '/health/';
+
+// Card API prefix (the router is mounted at /api/v1/ and registers credit-cards).
+export const CARD_API_PATH = '/api/v1/credit-cards';
+
 export const DEFAULT_HEADERS = {
   'Accept': 'application/json',
-  'Content-Type': 'application/json',
   'User-Agent': 'k6-load-test/1.0',
 };
 
-// Thresholds - shared across all scenarios
-export const THRESHOLDS = {
-  // p95 latency should be under 200ms (per Task 5.6 acceptance criteria)
-  'http_req_duration{type:api}': ['p(95)<200'],
-  // p99 latency should be under 500ms
-  'http_req_duration{type:api}': ['p(99)<500'],
-  // Overall error rate < 1%
+// A 429 is an expected throttle response, not a failure. Any other 4xx/5xx is.
+// k6 counts every status >= 400 as http_req_failed unless a responseCallback says otherwise.
+export const EXPECTED_STATUSES = http.expectedStatuses({ min: 200, max: 399 }, 429);
+
+// Steady-state thresholds (smoke, average). Each metric key appears exactly once.
+const STEADY_THRESHOLDS = {
+  'http_req_duration{type:api}': ['p(95)<200', 'p(99)<500'],
   'http_req_failed': ['rate<0.01'],
-  // 429 (rate limited) should be tracked separately, not counted as errors
-  // We'll track this via a custom metric
+  'checks': ['rate>0.99'],
 };
 
-// Custom thresholds per scenario (can be extended in each scenario)
+// Over-capacity thresholds (stress, spike). Looser by design: they measure degradation, not steady state.
+const OVERLOAD_THRESHOLDS = {
+  'http_req_duration{type:api}': ['p(95)<500', 'p(99)<1000'],
+  'http_req_failed': ['rate<0.05'],
+  'checks': ['rate>0.95'],
+};
+
+export const THRESHOLDS = STEADY_THRESHOLDS;
+
+// Trend statistics written to the summary. p(99) must be listed or k6 omits it, even when a threshold uses it.
+export const SUMMARY_TREND_STATS = ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'];
+
 export const SCENARIO_THRESHOLDS = {
-  smoke: {
-    'http_req_duration{type:api}': ['p(95)<200', 'p(99)<500'],
-    'http_req_failed': ['rate<0.01'],
-    'checks': ['rate>0.99'],
-  },
-  average: {
-    'http_req_duration{type:api}': ['p(95)<200', 'p(99)<500'],
-    'http_req_failed': ['rate<0.01'],
-    'checks': ['rate>0.99'],
-  },
-  stress: {
-    'http_req_duration{type:api}': ['p(95)<500', 'p(99)<1000'],
-    'http_req_failed': ['rate<0.05'],
-    'checks': ['rate>0.95'],
-  },
-  spike: {
-    'http_req_duration{type:api}': ['p(95)<500', 'p(99)<1000'],
-    'http_req_failed': ['rate<0.05'],
-    'checks': ['rate>0.95'],
-  },
+  smoke: STEADY_THRESHOLDS,
+  average: STEADY_THRESHOLDS,
+  stress: OVERLOAD_THRESHOLDS,
+  spike: OVERLOAD_THRESHOLDS,
 };
 
-// Rate limit configuration from backend settings (credit_mate_ai/settings.py)
-// Anonymous: 100 req/min, Authenticated: 1000 req/min, Burst: 10/sec
+// Throttle policy from credit_mate_ai/settings.py (DEFAULT_THROTTLE_RATES; each is env-overridable).
+//   anon: THROTTLE_RATE_ANON  default "100/min"   (unauthenticated, keyed by REMOTE_ADDR)
+//   user: THROTTLE_RATE_USER  default "1000/min"  (authenticated, keyed by user id)
+//   burst: THROTTLE_RATE_BURST default "10/sec"   (applies to both)
+// Note: the suite only issues anonymous requests, so the 1000/min user limit is never reached.
 export const RATE_LIMITS = {
-  anon: { rpm: 100, rps: 10 },      // 100/min, burst 10/sec
-  user: { rpm: 1000, rps: 10 },     // 1000/min, burst 10/sec
-  burst: { rps: 10 },               // 10/sec burst protection
+  anon: { perMinute: 100, burstPerSecond: 10 },
+  user: { perMinute: 1000 },
 };
 
-// Custom metric names for 429 tracking
-export const METRIC_NAMES = {
-  rateLimited: 'rate_limited_429_total',
-  rateLimitedRate: 'rate_limited_429_rate',
-};
+const RAMPING_VUS = 'ramping-vus';
 
-// Helper to build full API URLs
-export function url(path) {
-  return `${BASE_URL}${API_PREFIX}${path}`;
-}
-
-// Helper to check if response is rate limited (429)
-export function isRateLimited(response) {
-  return response.status === 429;
-}
-
-// Helper to extract Retry-After header (seconds)
-export function getRetryAfter(response) {
-  const retryAfter = response.headers['Retry-After'] || response.headers['retry-after'];
-  return retryAfter ? parseInt(retryAfter, 10) : 1;
-}
-
-// Common check functions
-export const checks = {
-  status200: (r) => r.status === 200,
-  status2xx: (r) => r.status >= 200 && r.status < 300,
-  status429: (r) => r.status === 429,
-  hasBody: (r) => r.body && r.body.length > 0,
-  isJson: (r) => {
-    const ct = r.headers['Content-Type'] || r.headers['content-type'];
-    return ct && ct.includes('application/json');
-  },
-  latencyUnder: (ms) => (r) => r.timings.duration < ms,
-};
-
-// Scenario executor options presets
+// Executor presets. Stage durations drive the phase boundaries in PHASES below.
 export const EXECUTOR_PRESETS = {
-  // Constant VUs for smoke test
   smoke: {
     executor: 'constant-vus',
     vus: 1,
     duration: '30s',
   },
-  // Ramping up for average load
   average: {
-    executor: 'ramping-vus',
+    executor: RAMPING_VUS,
     stages: [
-      { duration: '2m', target: 50 },   // Ramp up to 50 VUs
-      { duration: '5m', target: 50 },   // Sustain 50 VUs
-      { duration: '2m', target: 100 },  // Ramp to 100 VUs
-      { duration: '5m', target: 100 },  // Sustain 100 VUs
-      { duration: '2m', target: 0 },    // Ramp down
+      { duration: '2m', target: 50 },
+      { duration: '5m', target: 50 },
+      { duration: '2m', target: 100 },
+      { duration: '5m', target: 100 },
+      { duration: '2m', target: 0 },
     ],
   },
-  // Stress test - push beyond normal capacity
   stress: {
-    executor: 'ramping-vus',
+    executor: RAMPING_VUS,
     stages: [
-      { duration: '2m', target: 100 },   // Ramp up
-      { duration: '5m', target: 100 },   // Baseline
-      { duration: '3m', target: 200 },   // Stress
-      { duration: '3m', target: 300 },   // Heavy stress
-      { duration: '3m', target: 500 },   // Breaking point
-      { duration: '2m', target: 0 },     // Ramp down
+      { duration: '2m', target: 100 },
+      { duration: '5m', target: 100 },
+      { duration: '3m', target: 200 },
+      { duration: '3m', target: 300 },
+      { duration: '3m', target: 500 },
+      { duration: '2m', target: 0 },
     ],
   },
-  // Spike test - sudden traffic burst
   spike: {
-    executor: 'ramping-vus',
+    executor: RAMPING_VUS,
     stages: [
-      { duration: '1m', target: 50 },    // Normal load
-      { duration: '30s', target: 500 },  // Sudden spike
-      { duration: '1m', target: 500 },   // Sustain spike
-      { duration: '30s', target: 50 },   // Drop back
-      { duration: '1m', target: 50 },    // Recovery
-      { duration: '1m', target: 0 },     // Ramp down
+      { duration: '1m', target: 50 },
+      { duration: '30s', target: 500 },
+      { duration: '1m', target: 500 },
+      { duration: '30s', target: 50 },
+      { duration: '1m', target: 50 },
+      { duration: '1m', target: 0 },
     ],
   },
 };
 
-// Output options for Grafana/Prometheus
-export const OUTPUT_OPTIONS = {
-  // JSON output for post-processing
-  json: {
-    output: 'json',
-  },
-  // Prometheus remote write (requires k6 with xk6-output-prometheus-remote)
-  // Enable with: k6 run --out experimental-prometheus-rw=... script.js
-  prometheusRemoteWrite: {
-    output: 'experimental-prometheus-rw',
-  },
-};
-
-export default {
-  BASE_URL,
-  API_PREFIX,
-  DEFAULT_HEADERS,
-  THRESHOLDS,
-  SCENARIO_THRESHOLDS,
-  RATE_LIMITS,
-  METRIC_NAMES,
-  url,
-  isRateLimited,
-  getRetryAfter,
-  checks,
-  EXECUTOR_PRESETS,
-  OUTPUT_OPTIONS,
+// Named phases as [name, end-second] pairs, matching the cumulative stage durations above.
+// Phase is picked from elapsed test time (not VU number), so tags are accurate.
+export const PHASES = {
+  stress: [
+    ['warmup', 120],
+    ['baseline', 420],
+    ['stress', 600],
+    ['heavy-stress', 780],
+    ['breaking-point', 960],
+    ['ramp-down', 1080],
+  ],
+  spike: [
+    ['normal', 60],
+    ['spike-ramp-up', 90],
+    ['spike-sustain', 150],
+    ['spike-ramp-down', 180],
+    ['recovery', 240],
+    ['ramp-down', 300],
+  ],
 };
