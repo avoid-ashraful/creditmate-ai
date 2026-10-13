@@ -11,6 +11,7 @@ global:
 rule_files:
   - rules/creditmate-recording.yml
   - rules/creditmate-alerts.yml
+  - rules/creditmate-data-quality.yml
 
 alerting:
   alertmanagers:

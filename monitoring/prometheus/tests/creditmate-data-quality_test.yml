@@ -1,0 +1,108 @@
+# Unit tests for the data-quality alerts. Run from monitoring/prometheus:
+#   promtool test rules tests/creditmate-data-quality_test.yml
+rule_files:
+  - ../rules/creditmate-data-quality.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Overall success rate 60% for 90 minutes: pending for the 1h "for" window, then fires.
+  - interval: 1m
+    input_series:
+      - series: 'pg_dq_success_rate{}'
+        values: '0.6x90'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CreditmateDataQualityLowSuccessRate
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: CreditmateDataQualityLowSuccessRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+            exp_annotations:
+              summary: "Overall extraction success rate below 70%"
+              description: "completed / (completed + failed) across all crawled content is below 70%."
+              runbook: "docs/runbooks/data-quality.md"
+
+  # Healthy overall values never alert.
+  - interval: 1m
+    input_series:
+      - series: 'pg_dq_success_rate{}'
+        values: '0.95x90'
+      - series: 'pg_dq_confidence_latest{}'
+        values: '0.8x90'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: CreditmateDataQualityLowSuccessRate
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: CreditmateDataQualityLowConfidence
+        exp_alerts: []
+
+  # Overall confidence 0.4 for 90 minutes: fires after the 1h window.
+  - interval: 1m
+    input_series:
+      - series: 'pg_dq_confidence_latest{}'
+        values: '0.4x90'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CreditmateDataQualityLowConfidence
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: CreditmateDataQualityLowConfidence
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+            exp_annotations:
+              summary: "Overall extraction confidence below 0.5"
+              description: "The 7-day average extraction confidence (30-day when there is no 7-day data) is below 0.5 across all banks."
+              runbook: "docs/runbooks/data-quality.md"
+
+  # Per-bank: Beta breaches confidence, Alpha is healthy. Labels carry bank identity.
+  - interval: 1m
+    input_series:
+      - series: 'pg_dq_bank_confidence_latest{bank_id="2", bank_name="Beta Bank"}'
+        values: '0.4x90'
+      - series: 'pg_dq_bank_confidence_latest{bank_id="1", bank_name="Alpha Bank"}'
+        values: '0.7x90'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: CreditmateBankDataQualityLowConfidence
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              bank_id: "2"
+              bank_name: "Beta Bank"
+            exp_annotations:
+              summary: "Beta Bank: extraction confidence below 0.5"
+              description: "The latest average extraction confidence for Beta Bank (banks_bank.id 2) is below 0.5."
+              runbook: "docs/runbooks/data-quality.md"
+
+  # Per-bank success rate: Alpha at 50% fires; a bank with no series never fires.
+  - interval: 1m
+    input_series:
+      - series: 'pg_dq_bank_success_rate{bank_id="1", bank_name="Alpha Bank"}'
+        values: '0.5x90'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CreditmateBankDataQualityLowSuccessRate
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: CreditmateBankDataQualityLowSuccessRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              bank_id: "1"
+              bank_name: "Alpha Bank"
+            exp_annotations:
+              summary: "Alpha Bank: extraction success rate below 70%"
+              description: "completed / (completed + failed) for Alpha Bank (banks_bank.id 1) is below 70%."
+              runbook: "docs/runbooks/data-quality.md"
+      - eval_time: 90m
+        alertname: CreditmateBankDataQualityLowConfidence
+        exp_alerts: []

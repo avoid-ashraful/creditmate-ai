@@ -1,0 +1,65 @@
+# postgres_exporter custom queries for the data-quality alerts (task 2.2).
+#
+# Feeds monitoring/prometheus/rules/creditmate-data-quality.yml. Load it with:
+#   postgres_exporter --extend.query-path=/etc/postgres-exporter/data-quality-queries.yaml
+# and give the exporter's login role membership in dq_reader (see monitoring/sql/README.md).
+#
+# Each query returns only rows whose value is not NULL. A NULL would be logged as a
+# scrape error by the exporter, and "no data yet" should simply produce no series.
+# Metric names are <query key>_<column>, e.g. pg_dq_bank_success_rate.
+
+pg_dq_confidence:
+  query: >-
+    SELECT latest_confidence AS latest
+    FROM dq_monitor.totals_quality
+    WHERE latest_confidence IS NOT NULL
+  cache_seconds: 900
+  metrics:
+    - latest:
+        usage: "GAUGE"
+        description: "Overall average extraction confidence, 7-day window with 30-day fallback (0-1)"
+
+pg_dq_success:
+  query: >-
+    SELECT success_rate AS rate
+    FROM dq_monitor.totals_quality
+    WHERE success_rate IS NOT NULL
+  cache_seconds: 900
+  metrics:
+    - rate:
+        usage: "GAUGE"
+        description: "Overall extraction success rate: completed / (completed + failed) (0-1)"
+
+pg_dq_bank_confidence:
+  query: >-
+    SELECT bank_id::text AS bank_id, bank_name, latest_confidence AS latest
+    FROM dq_monitor.bank_quality
+    WHERE latest_confidence IS NOT NULL
+  cache_seconds: 900
+  metrics:
+    - bank_id:
+        usage: "LABEL"
+        description: "banks_bank.id"
+    - bank_name:
+        usage: "LABEL"
+        description: "banks_bank.name"
+    - latest:
+        usage: "GAUGE"
+        description: "Per-bank average extraction confidence, 7-day window with 30-day fallback (0-1)"
+
+pg_dq_bank_success:
+  query: >-
+    SELECT bank_id::text AS bank_id, bank_name, success_rate AS rate
+    FROM dq_monitor.bank_quality
+    WHERE success_rate IS NOT NULL
+  cache_seconds: 900
+  metrics:
+    - bank_id:
+        usage: "LABEL"
+        description: "banks_bank.id"
+    - bank_name:
+        usage: "LABEL"
+        description: "banks_bank.name"
+    - rate:
+        usage: "GAUGE"
+        description: "Per-bank extraction success rate: completed / (completed + failed) (0-1)"
