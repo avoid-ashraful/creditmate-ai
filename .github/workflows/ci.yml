@@ -1,0 +1,336 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      infrastructure: ${{ steps.filter.outputs.infrastructure }}
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'creditmate-ai-fe'
+              - 'creditmate-ai-fe/**'
+            backend:
+              - 'creditmate-ai-be'
+              - 'creditmate-ai-be/**'
+            infrastructure:
+              - '.github/workflows/ci.yml'
+              - 'docker-compose.ci.yml'
+              - '.gitmodules'
+
+  frontend:
+    name: Frontend lint, types, tests, build
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infrastructure == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: creditmate-ai-fe
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: creditmate-ai-fe/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          npm run check-lint 2>&1 | tee reports/frontend-lint.log
+
+      - name: Typecheck
+        run: |
+          set -o pipefail
+          npm run check-types 2>&1 | tee reports/frontend-typecheck.log
+
+      - name: Unit tests and coverage
+        run: |
+          set -o pipefail
+          CI=true npm test -- --watchAll=false --maxWorkers=2 --coverage \
+            --coverageReporters=text --coverageReporters=clover \
+            --coverageDirectory=reports/coverage 2>&1 | tee reports/frontend-tests.log
+
+      - name: Build
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee reports/frontend-build.log
+
+      - name: Upload frontend artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-ci-artifacts
+          path: |
+            creditmate-ai-fe/reports
+            creditmate-ai-fe/coverage
+            creditmate-ai-fe/build
+          if-no-files-found: warn
+          retention-days: 14
+
+  backend:
+    name: Backend lint, tests, build
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.infrastructure == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: creditmate-ai-be
+    env:
+      DEBUG: "True"
+      ENVIRONMENT: ci
+      SECRET_KEY: ci-only-test-secret-key
+      ALLOWED_HOSTS: testserver,localhost,127.0.0.1
+      CACHE_BACKEND: locmem
+      CELERY_BROKER_URL: memory://
+      CELERY_RESULT_BACKEND: cache+memory://
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('creditmate-ai-be/uv.lock') }}
+          restore-keys: ${{ runner.os }}-uv-
+
+      - name: Start PostgreSQL and wait
+        run: |
+          docker compose -f "$GITHUB_WORKSPACE/docker-compose.ci.yml" up --wait --detach --no-deps postgres
+          echo "DATABASE_URL=postgres://creditmate:creditmate@localhost:5432/creditmate_test" >> "$GITHUB_ENV"
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            if pg_isready -U creditmate -d creditmate_test 2>/dev/null; then
+              echo "PostgreSQL ready"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Install dependencies
+        run: uv sync --python 3.12 --group dev
+
+      - name: Lint
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          uv run flake8 . 2>&1 | tee reports/backend-lint.log
+
+      - name: Unit tests, coverage, and package build
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          uv run pytest --junitxml=reports/backend-tests.xml \
+            --cov=. --cov-report=xml:reports/backend-coverage.xml \
+            --cov-report=term-missing 2>&1 | tee reports/backend-tests.log
+          uv build 2>&1 | tee reports/backend-build.log
+
+      - name: Upload backend artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-ci-artifacts
+          path: |
+            creditmate-ai-be/reports
+            creditmate-ai-be/coverage
+            creditmate-ai-be/dist
+          if-no-files-found: warn
+          retention-days: 14
+
+  quality-gate:
+    name: CI quality gate
+    needs: [changes, frontend, backend]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify all required checks passed
+        run: |
+          set -euo pipefail
+          changes_result="${{ needs.changes.result }}"
+          frontend_result="${{ needs.frontend.result }}"
+          backend_result="${{ needs.backend.result }}"
+          frontend_selected="${{ needs.changes.outputs.frontend }}"
+          backend_selected="${{ needs.changes.outputs.backend }}"
+          infrastructure_selected="${{ needs.changes.outputs.infrastructure }}"
+          event_name="${{ github.event_name }}"
+
+          echo "Change detection result: $changes_result"
+          echo "Frontend result: $frontend_result (selected: $frontend_selected)"
+          echo "Backend result: $backend_result (selected: $backend_selected)"
+          echo "Infrastructure changed: $infrastructure_selected"
+
+          if [ "$changes_result" != "success" ]; then
+            echo "::error::Change detection finished with result: $changes_result"
+            exit 1
+          fi
+
+          if [ "$frontend_result" = "success" ]; then
+            :
+          elif [ "$frontend_result" = "skipped" ] && [ "$event_name" = "pull_request" ] && [ "$frontend_selected" != "true" ] && [ "$infrastructure_selected" != "true" ]; then
+            echo "Frontend was correctly skipped: no selected frontend or infrastructure changes."
+          else
+            echo "::error::Frontend check failed or was unexpectedly skipped (result: $frontend_result)."
+            exit 1
+          fi
+
+          if [ "$backend_result" = "success" ]; then
+            :
+          elif [ "$backend_result" = "skipped" ] && [ "$event_name" = "pull_request" ] && [ "$backend_selected" != "true" ] && [ "$infrastructure_selected" != "true" ]; then
+            echo "Backend was correctly skipped: no selected backend or infrastructure changes."
+          else
+            echo "::error::Backend check failed or was unexpectedly skipped (result: $backend_result)."
+            exit 1
+          fi
+
+          echo "All selected required checks passed. Container build and staging deploy may proceed."
+
+  container-build:
+    name: Build container images
+    needs: [quality-gate]
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && needs.quality-gate.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: backend
+            context: creditmate-ai-be
+            image: ghcr.io/avoid-ashraful/creditmate-ai-backend
+          - component: frontend
+            context: creditmate-ai-fe
+            image: ghcr.io/avoid-ashraful/creditmate-ai-frontend
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          build-args: |
+            REACT_APP_API_BASE_URL=${{ vars.REACT_APP_API_BASE_URL || secrets.REACT_APP_API_BASE_URL }}
+          provenance: false
+          tags: |
+            ${{ matrix.image }}:${{ github.ref_name }}
+            ${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=container-${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=container-${{ matrix.component }}
+
+      - name: Record image build log
+        run: |
+          mkdir -p container-artifacts
+          echo "Image: ${{ matrix.image }}" > container-artifacts/${{ matrix.component }}-build.log
+          echo "Tags: ${{ github.ref_name }}, ${{ github.sha }}" >> container-artifacts/${{ matrix.component }}-build.log
+
+      - name: Upload container build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-${{ matrix.component }}-artifacts
+          path: container-artifacts
+          if-no-files-found: warn
+          retention-days: 14
+
+  deploy-staging:
+    name: Deploy staging
+    needs: [quality-gate, container-build]
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && needs.container-build.result == 'success' && needs.quality-gate.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      deployments: write
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL || 'not-configured' }}
+    steps:
+      - name: Fail explicitly when staging deploy command is missing
+        run: |
+          if [ -z "${STAGING_DEPLOY_COMMAND:-}" ]; then
+            echo "::error::Staging deployment is NOT configured."
+            echo "No staging infrastructure or credentials exist yet (verified by manager: zero repository secrets on avoid-ashraful/creditmate-ai)."
+            echo "To enable: configure repository/environment variable STAGING_DEPLOY_COMMAND (or secret) with the approved staging deploy command, plus any credentials it needs."
+            exit 1
+          fi
+        env:
+          STAGING_DEPLOY_COMMAND: ${{ vars.STAGING_DEPLOY_COMMAND || secrets.STAGING_DEPLOY_COMMAND }}
+
+      - name: Deploy to staging
+        run: bash -euo pipefail -c "$STAGING_DEPLOY_COMMAND"
+        env:
+          STAGING_DEPLOY_COMMAND: ${{ vars.STAGING_DEPLOY_COMMAND || secrets.STAGING_DEPLOY_COMMAND }}
+          STAGING_URL: ${{ vars.STAGING_URL || 'https://staging.creditmate.ai' }}
+          BACKEND_IMAGE: ghcr.io/avoid-ashraful/creditmate-ai-backend:${{ github.sha }}
+          FRONTEND_IMAGE: ghcr.io/avoid-ashraful/creditmate-ai-frontend:${{ github.sha }}
