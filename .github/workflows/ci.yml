@@ -5,249 +5,323 @@ on:
     branches: [master, main]
   push:
     branches: [master, main]
+    tags: ['v*']
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
 
+# Action references use version tags because the runner has no verified offline SHA catalog.
+# SUBMODULE_TOKEN: create a fine-grained read-only token with Contents: read on each private
+# submodule repository, then add it as the repository secret SUBMODULE_TOKEN. Checkout uses
+# it for recursive private-submodule fetches and falls back to GITHUB_TOKEN for public repos.
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
-  REGISTRY: ghcr.io
+  CI: 'true'
 
 jobs:
-  changes:
+  backend:
+    name: Backend (${{ matrix.app }})
+    if: ${{ github.event_name != 'schedule' }}
     runs-on: ubuntu-24.04
-    outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      backend: ${{ steps.filter.outputs.backend }}
-      infrastructure: ${{ steps.filter.outputs.infrastructure }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [accounts, saved, reviews, alerts, credit_cards, banks, search, credit_mate_ai]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: creditmate_81ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d creditmate_81ci"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: 'false'
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports: ['9200:9200']
+        options: >-
+          --health-cmd "curl -fsS http://localhost:9200/_cluster/health"
+          --health-interval 10s --health-timeout 10s --health-retries 20
+    defaults:
+      run:
+        working-directory: creditmate-ai-be
+    env:
+      DEBUG: 'True'
+      SECRET_KEY: ci-test-secret
+      SEARCH_ENABLED: 'True'
+      REDIS_CACHE_URL: redis://127.0.0.1:6379/14
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: 127.0.0.1
+      DB_NAME: creditmate_81ci
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/creditmate_81ci
+      ELASTICSEARCH_URL: http://127.0.0.1:9200
     steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
         with:
-          fetch-depth: 0
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Detect changed paths
-        uses: dorny/paths-filter@v3
-        id: filter
+      - uses: actions/setup-python@v5 # tag used: no verified offline SHA catalog
         with:
-          filters: |
-            frontend:
-              - 'creditmate-ai-fe'
-              - 'creditmate-ai-fe/**'
-            backend:
-              - 'creditmate-ai-be'
-              - 'creditmate-ai-be/**'
-            infrastructure:
-              - '.github/workflows/ci.yml'
-              - 'docker-compose.ci.yml'
-              - '.gitmodules'
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v5 # tag used: no verified offline SHA catalog
+      - name: Verify lock and install
+        run: |
+          uv lock --check
+          uv sync --frozen --group dev
+      - name: Django checks and migrations
+        run: |
+          uv run python manage.py check
+          uv run python manage.py makemigrations --check --dry-run
+      - name: Lint
+        run: uv run flake8 .
+      - name: Tests with coverage
+        run: uv run pytest "$APP_TEST_PATH" --cov=. --cov-report=term-missing --cov-report=xml:reports/coverage.xml
+        env:
+          APP_TEST_PATH: ${{ matrix.app }}
+      - name: Validate OpenAPI schema
+        run: uv run python manage.py spectacular --validate --file /tmp/schema.yml
 
   frontend:
-    name: Frontend lint, types, tests, build
-    needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infrastructure == 'true' }}
+    name: Frontend checks, tests, production build
+    if: ${{ github.event_name != 'schedule' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: creditmate-ai-fe
+    steps:
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: creditmate-ai-fe/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: CI=true npx react-scripts test --watchAll=false --maxWorkers=2 --coverage
+        name: Jest and coverage
+      - run: npm run check-types
+      - run: npm run check-lint
+      - run: npm run check-format
+      - run: npm run tokens:check
+      - run: npm run build
+      - run: npm run bundle:budget
+      - uses: actions/upload-artifact@v4 # tag used: no verified offline SHA catalog
+        with:
+          name: frontend-production-build
+          path: creditmate-ai-fe/build
+          if-no-files-found: error
+          retention-days: 2
+
+  e2e:
+    name: Playwright production e2e (non-visual)
+    if: ${{ github.event_name != 'schedule' }}
+    needs: frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: creditmate-ai-fe
+    steps:
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: creditmate-ai-fe/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - uses: actions/download-artifact@v4 # tag used: no verified offline SHA catalog
+        with:
+          name: frontend-production-build
+          path: creditmate-ai-fe/build
+      - uses: actions/cache@v4 # tag used: no verified offline SHA catalog
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('creditmate-ai-fe/package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - name: Serve production build and run non-visual e2e
+        run: |
+          npx serve -s build -l 4173 > /tmp/creditmate-serve.log 2>&1 &
+          echo $! > /tmp/creditmate-serve.pid
+          npx wait-on http://127.0.0.1:4173
+          npx playwright test --grep-invert '@visual|visual'
+        env:
+          BASE_URL: http://127.0.0.1:4173
+      - if: always()
+        run: if [ -f /tmp/creditmate-serve.pid ]; then kill "$(cat /tmp/creditmate-serve.pid)"; fi
+
+  visual-regression:
+    name: Playwright visual regression (optional)
+    if: ${{ github.event_name != 'schedule' }}
+    needs: frontend
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: creditmate-ai-fe
+    steps:
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: creditmate-ai-fe/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - uses: actions/download-artifact@v4 # tag used: no verified offline SHA catalog
+        with:
+          name: frontend-production-build
+          path: creditmate-ai-fe/build
+      - uses: actions/cache@v4 # tag used: no verified offline SHA catalog
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('creditmate-ai-fe/package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          npx serve -s build -l 4173 > /tmp/creditmate-serve.log 2>&1 &
+          echo $! > /tmp/creditmate-serve.pid
+          npx wait-on http://127.0.0.1:4173
+          npx playwright test --grep '@visual|visual'
+        env:
+          BASE_URL: http://127.0.0.1:4173
+      - if: always()
+        run: if [ -f /tmp/creditmate-serve.pid ]; then kill "$(cat /tmp/creditmate-serve.pid)"; fi
+
+  security-audit:
+    name: npm audit (informational)
+    if: ${{ github.event_name != 'schedule' }}
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: creditmate-ai-fe
+    steps:
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: creditmate-ai-fe/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - name: Audit and summarize without failing CI
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node -e 'const a=require("/tmp/npm-audit.json"); console.log(JSON.stringify(a.metadata?.vulnerabilities ?? {}, null, 2))' >> "$GITHUB_STEP_SUMMARY"
+
+  storybook:
+    name: Storybook production build
+    if: ${{ github.event_name != 'schedule' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
         working-directory: creditmate-ai-fe
     steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
         with:
-          fetch-depth: 0
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
         with:
-          node-version: "20"
+          node-version: 20
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build-storybook
 
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: Lint
-        run: |
-          set -o pipefail
-          mkdir -p reports
-          npm run check-lint 2>&1 | tee reports/frontend-lint.log
-
-      - name: Typecheck
-        run: |
-          set -o pipefail
-          npm run check-types 2>&1 | tee reports/frontend-typecheck.log
-
-      - name: Unit tests and coverage
-        run: |
-          set -o pipefail
-          CI=true npm test -- --watchAll=false --maxWorkers=2 --coverage \
-            --coverageReporters=text --coverageReporters=clover \
-            --coverageDirectory=reports/coverage 2>&1 | tee reports/frontend-tests.log
-
-      - name: Build
-        run: |
-          set -o pipefail
-          npm run build 2>&1 | tee reports/frontend-build.log
-
-      - name: Upload frontend artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-ci-artifacts
-          path: |
-            creditmate-ai-fe/reports
-            creditmate-ai-fe/coverage
-            creditmate-ai-fe/build
-          if-no-files-found: warn
-          retention-days: 14
-
-  backend:
-    name: Backend lint, tests, build
-    needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.infrastructure == 'true' }}
+  infrastructure:
+    name: Kubernetes and monitoring validation
+    if: ${{ github.event_name != 'schedule' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    defaults:
-      run:
-        working-directory: creditmate-ai-be
-    env:
-      DEBUG: "True"
-      ENVIRONMENT: ci
-      SECRET_KEY: ci-only-test-secret-key
-      ALLOWED_HOSTS: testserver,localhost,127.0.0.1
-      CACHE_BACKEND: locmem
-      CELERY_BROKER_URL: memory://
-      CELERY_RESULT_BACKEND: cache+memory://
+    timeout-minutes: 20
     steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
         with:
-          fetch-depth: 0
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: azure/setup-kubectl@v4 # tag used: no verified offline SHA catalog
         with:
-          python-version: "3.12"
-
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Restore uv cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('creditmate-ai-be/uv.lock') }}
-          restore-keys: ${{ runner.os }}-uv-
-
-      - name: Start PostgreSQL and wait
+          version: v1.31.0
+      - name: Install validators
         run: |
-          docker compose -f "$GITHUB_WORKSPACE/docker-compose.ci.yml" up --wait --detach --no-deps postgres
-          echo "DATABASE_URL=postgres://creditmate:creditmate@localhost:5432/creditmate_test" >> "$GITHUB_ENV"
-
-      - name: Wait for PostgreSQL
+          curl -sSLo /tmp/kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.5.0/kustomize_v5.5.0_linux_amd64.tar.gz
+          tar -xzf /tmp/kustomize.tar.gz -C /tmp
+          sudo install /tmp/kustomize /usr/local/bin/kustomize
+          curl -sSLo /tmp/kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+          sudo install /tmp/kubeconform /usr/local/bin/kubeconform
+          sudo apt-get update && sudo apt-get install -y yamllint
+          curl -sSLo /tmp/promtool.tar.gz https://github.com/prometheus/prometheus/releases/download/v2.55.0/prometheus-2.55.0.linux-amd64.tar.gz
+          tar -xzf /tmp/promtool.tar.gz -C /tmp
+          sudo install /tmp/prometheus-2.55.0.linux-amd64/promtool /usr/local/bin/promtool
+      - name: Build and validate Kubernetes manifests
         run: |
-          for i in $(seq 1 30); do
-            if pg_isready -U creditmate -d creditmate_test 2>/dev/null; then
-              echo "PostgreSQL ready"
-              break
-            fi
-            sleep 2
+          for dir in k8s/base k8s/overlays/staging k8s/overlays/production; do
+            kustomize build "$dir" | kubeconform -strict -summary
           done
-
-      - name: Install dependencies
-        run: uv sync --python 3.12 --group dev
-
-      - name: Lint
+      - name: Lint YAML and validate Prometheus rules
         run: |
-          set -o pipefail
-          mkdir -p reports
-          uv run flake8 . 2>&1 | tee reports/backend-lint.log
+          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' k8s monitoring
+          promtool check rules monitoring/prometheus/rules/*.yml
+          promtool test rules monitoring/prometheus/tests/*.yml
 
-      - name: Unit tests, coverage, and package build
-        run: |
-          set -o pipefail
-          mkdir -p reports
-          uv run pytest --junitxml=reports/backend-tests.xml \
-            --cov=. --cov-report=xml:reports/backend-coverage.xml \
-            --cov-report=term-missing 2>&1 | tee reports/backend-tests.log
-          uv build 2>&1 | tee reports/backend-build.log
-
-      - name: Upload backend artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-ci-artifacts
-          path: |
-            creditmate-ai-be/reports
-            creditmate-ai-be/coverage
-            creditmate-ai-be/dist
-          if-no-files-found: warn
-          retention-days: 14
-
-  quality-gate:
-    name: CI quality gate
-    needs: [changes, frontend, backend]
-    if: ${{ always() }}
+  k6-smoke:
+    name: Nightly k6 smoke
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - name: Verify all required checks passed
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: grafana/setup-k6-action@v1 # tag used: no verified offline SHA catalog
+      - name: Start stack and run smoke test
         run: |
-          set -euo pipefail
-          changes_result="${{ needs.changes.result }}"
-          frontend_result="${{ needs.frontend.result }}"
-          backend_result="${{ needs.backend.result }}"
-          frontend_selected="${{ needs.changes.outputs.frontend }}"
-          backend_selected="${{ needs.changes.outputs.backend }}"
-          infrastructure_selected="${{ needs.changes.outputs.infrastructure }}"
-          event_name="${{ github.event_name }}"
-
-          echo "Change detection result: $changes_result"
-          echo "Frontend result: $frontend_result (selected: $frontend_selected)"
-          echo "Backend result: $backend_result (selected: $backend_selected)"
-          echo "Infrastructure changed: $infrastructure_selected"
-
-          if [ "$changes_result" != "success" ]; then
-            echo "::error::Change detection finished with result: $changes_result"
-            exit 1
-          fi
-
-          if [ "$frontend_result" = "success" ]; then
-            :
-          elif [ "$frontend_result" = "skipped" ] && [ "$event_name" = "pull_request" ] && [ "$frontend_selected" != "true" ] && [ "$infrastructure_selected" != "true" ]; then
-            echo "Frontend was correctly skipped: no selected frontend or infrastructure changes."
-          else
-            echo "::error::Frontend check failed or was unexpectedly skipped (result: $frontend_result)."
-            exit 1
-          fi
-
-          if [ "$backend_result" = "success" ]; then
-            :
-          elif [ "$backend_result" = "skipped" ] && [ "$event_name" = "pull_request" ] && [ "$backend_selected" != "true" ] && [ "$infrastructure_selected" != "true" ]; then
-            echo "Backend was correctly skipped: no selected backend or infrastructure changes."
-          else
-            echo "::error::Backend check failed or was unexpectedly skipped (result: $backend_result)."
-            exit 1
-          fi
-
-          echo "All selected required checks passed. Container build and staging deploy may proceed."
+          docker compose -f docker-compose.staging.yml up -d --wait
+          k6 run load-tests/smoke.js
+      - if: always()
+        run: docker compose -f docker-compose.staging.yml down -v
 
   container-build:
-    name: Build container images
-    needs: [quality-gate]
-    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && needs.quality-gate.result == 'success' }}
+    name: Build images (tagged releases may publish)
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 30
     strategy:
-      fail-fast: false
       matrix:
         include:
           - component: backend
@@ -256,81 +330,27 @@ jobs:
           - component: frontend
             context: creditmate-ai-fe
             image: ghcr.io/avoid-ashraful/creditmate-ai-frontend
-    steps:
-      - name: Checkout with submodules
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: recursive
-          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          push: true
-          build-args: |
-            REACT_APP_API_BASE_URL=${{ vars.REACT_APP_API_BASE_URL || secrets.REACT_APP_API_BASE_URL }}
-          provenance: false
-          tags: |
-            ${{ matrix.image }}:${{ github.ref_name }}
-            ${{ matrix.image }}:${{ github.sha }}
-          cache-from: type=gha,scope=container-${{ matrix.component }}
-          cache-to: type=gha,mode=max,scope=container-${{ matrix.component }}
-
-      - name: Record image build log
-        run: |
-          mkdir -p container-artifacts
-          echo "Image: ${{ matrix.image }}" > container-artifacts/${{ matrix.component }}-build.log
-          echo "Tags: ${{ github.ref_name }}, ${{ github.sha }}" >> container-artifacts/${{ matrix.component }}-build.log
-
-      - name: Upload container build artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: container-${{ matrix.component }}-artifacts
-          path: container-artifacts
-          if-no-files-found: warn
-          retention-days: 14
-
-  deploy-staging:
-    name: Deploy staging
-    needs: [quality-gate, container-build]
-    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && needs.container-build.result == 'success' && needs.quality-gate.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
     permissions:
       contents: read
-      deployments: write
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_URL || 'not-configured' }}
+      packages: write
     steps:
-      - name: Fail explicitly when staging deploy command is missing
-        run: |
-          if [ -z "${STAGING_DEPLOY_COMMAND:-}" ]; then
-            echo "::error::Staging deployment is NOT configured."
-            echo "No staging infrastructure or credentials exist yet (verified by manager: zero repository secrets on avoid-ashraful/creditmate-ai)."
-            echo "To enable: configure repository/environment variable STAGING_DEPLOY_COMMAND (or secret) with the approved staging deploy command, plus any credentials it needs."
-            exit 1
-          fi
-        env:
-          STAGING_DEPLOY_COMMAND: ${{ vars.STAGING_DEPLOY_COMMAND || secrets.STAGING_DEPLOY_COMMAND }}
-
-      - name: Deploy to staging
-        run: bash -euo pipefail -c "$STAGING_DEPLOY_COMMAND"
-        env:
-          STAGING_DEPLOY_COMMAND: ${{ vars.STAGING_DEPLOY_COMMAND || secrets.STAGING_DEPLOY_COMMAND }}
-          STAGING_URL: ${{ vars.STAGING_URL || 'https://staging.creditmate.ai' }}
-          BACKEND_IMAGE: ghcr.io/avoid-ashraful/creditmate-ai-backend:${{ github.sha }}
-          FRONTEND_IMAGE: ghcr.io/avoid-ashraful/creditmate-ai-frontend:${{ github.sha }}
+      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3 # tag used: no verified offline SHA catalog
+      - name: Login to GHCR for version tags only
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v3 # tag used: no verified offline SHA catalog
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (push only for version tags)
+        uses: docker/build-push-action@v6 # tag used: no verified offline SHA catalog
+        with:
+          context: ${{ matrix.context }}
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: ${{ matrix.image }}:${{ github.ref_name }}
+          build-args: REACT_APP_API_BASE_URL=${{ vars.REACT_APP_API_BASE_URL || secrets.REACT_APP_API_BASE_URL }}
+          provenance: false
