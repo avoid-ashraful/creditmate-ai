@@ -1,0 +1,55 @@
+# Alertmanager configuration TEMPLATE. Not valid as-is: every REPLACE_ME_* must be
+# replaced from the secret store at render time. Alertmanager does not expand env vars,
+# so render with envsubst / Helm / the operator's secret mount, never commit the rendered file.
+#
+# Routing:
+#   critical -> PagerDuty (on-call rotation, see docs/runbooks/on-call.md)
+#   warning  -> Slack #creditmate-alerts
+global:
+  resolve_timeout: 5m
+  slack_api_url: REPLACE_ME_SLACK_WEBHOOK_URL
+
+route:
+  receiver: slack-warnings
+  group_by: [alertname, namespace, job]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: pagerduty-oncall
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: false
+
+receivers:
+  - name: pagerduty-oncall
+    pagerduty_configs:
+      - routing_key: REPLACE_ME_PAGERDUTY_ROUTING_KEY
+        severity: critical
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          runbook: '{{ .CommonAnnotations.runbook }}'
+          environment: REPLACE_ME_ENVIRONMENT
+
+  - name: slack-warnings
+    slack_configs:
+      - channel: '#creditmate-alerts'
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ "\n" }}runbook: {{ .Annotations.runbook }}{{ "\n" }}{{ end }}'
+
+inhibit_rules:
+  # A site-wide 5xx alert makes the per-endpoint alert for the same endpoint redundant.
+  - source_matchers:
+      - alertname="CreditmateHighErrorRate"
+    target_matchers:
+      - alertname="CreditmateEndpointErrorRateHigh"
+    equal: [namespace]
+  # A node disk-critical alert supersedes the disk-warning alert for the same instance and mount.
+  - source_matchers:
+      - alertname="CreditmateNodeDiskUsageCritical"
+    target_matchers:
+      - alertname="CreditmateNodeDiskUsageHigh"
+    equal: [instance, mountpoint]

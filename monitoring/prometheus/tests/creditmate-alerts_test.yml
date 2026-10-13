@@ -1,0 +1,71 @@
+# Unit tests for the error-rate alerts. Run from monitoring/prometheus:
+#   promtool test rules tests/creditmate-alerts_test.yml
+rule_files:
+  - ../rules/creditmate-recording.yml
+  - ../rules/creditmate-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # 2% of requests return 500 for 30 minutes: must page (CreditmateHighErrorRate, critical).
+  - interval: 1m
+    input_series:
+      - series: 'django_http_requests_total_by_view_transport_method_total{view="api_search", transport="http", method="GET"}'
+        values: '0+100x30'
+      - series: 'django_http_responses_total_by_status_view_method_total{view="api_search", method="GET", status="200"}'
+        values: '0+98x30'
+      - series: 'django_http_responses_total_by_status_view_method_total{view="api_search", method="GET", status="500"}'
+        values: '0+2x30'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CreditmateHighErrorRate
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: CreditmateHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: platform
+            exp_annotations:
+              summary: "Site-wide 5xx error rate above 1%"
+              description: "2% of requests returned 5xx over the last 5 minutes."
+              runbook: "docs/runbooks/high-error-rate.md"
+      - eval_time: 15m
+        alertname: CreditmateEndpointErrorRateHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              view: api_search
+              method: GET
+            exp_annotations:
+              summary: "5xx error rate above 1% on api_search (GET)"
+              description: "2% of GET requests to api_search are failing."
+              runbook: "docs/runbooks/high-error-rate.md"
+
+  # No 5xx at all: nothing fires, even with traffic.
+  - interval: 1m
+    input_series:
+      - series: 'django_http_requests_total_by_view_transport_method_total{view="api_search", transport="http", method="GET"}'
+        values: '0+100x30'
+      - series: 'django_http_responses_total_by_status_view_method_total{view="api_search", method="GET", status="200"}'
+        values: '0+100x30'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CreditmateHighErrorRate
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: CreditmateEndpointErrorRateHigh
+        exp_alerts: []
+
+  # Low traffic (under 0.05 req/s) with errors must not page: the traffic guard suppresses noise.
+  - interval: 1m
+    input_series:
+      - series: 'django_http_requests_total_by_view_transport_method_total{view="api_search", transport="http", method="GET"}'
+        values: '0+1x30'
+      - series: 'django_http_responses_total_by_status_view_method_total{view="api_search", method="GET", status="500"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CreditmateHighErrorRate
+        exp_alerts: []

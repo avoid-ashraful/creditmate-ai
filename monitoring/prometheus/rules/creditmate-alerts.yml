@@ -1,0 +1,194 @@
+# Alert rules for Creditmate. Severity drives routing in Alertmanager:
+#   critical -> page the on-call engineer (PagerDuty)
+#   warning  -> Slack channel, handled in business hours
+# Every alert links to a runbook under docs/runbooks/.
+groups:
+  - name: creditmate-availability
+    rules:
+      - alert: CreditmateHighErrorRate
+        expr: creditmate:http_error_ratio_global:rate5m > 0.01 and sum(creditmate:http_requests:rate5m) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Site-wide 5xx error rate above 1%"
+          description: "{{ $value | humanizePercentage }} of requests returned 5xx over the last 5 minutes."
+          runbook: "docs/runbooks/high-error-rate.md"
+
+      - alert: CreditmateEndpointErrorRateHigh
+        expr: creditmate:http_error_ratio:rate5m > 0.01 and creditmate:http_requests:rate5m > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "5xx error rate above 1% on {{ $labels.view }} ({{ $labels.method }})"
+          description: "{{ $value | humanizePercentage }} of {{ $labels.method }} requests to {{ $labels.view }} are failing."
+          runbook: "docs/runbooks/high-error-rate.md"
+
+      - alert: CreditmateHighLatencyP99
+        expr: creditmate:http_request_duration_seconds:p99_global_5m > 1
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "p99 latency above 1s"
+          description: "Site-wide p99 latency is {{ $value | humanizeDuration }} over the last 5 minutes."
+          runbook: "docs/runbooks/high-latency.md"
+
+      - alert: CreditmateEndpointLatencyP99High
+        expr: creditmate:http_request_duration_seconds:p99_5m > 1 and creditmate:http_requests:rate5m > 0.05
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "p99 latency above 1s on {{ $labels.view }}"
+          description: "p99 for {{ $labels.method }} {{ $labels.view }} is {{ $value | humanizeDuration }}."
+          runbook: "docs/runbooks/high-latency.md"
+
+      - alert: CreditmateTargetDown
+        expr: up{job=~"creditmate-.*"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Scrape target {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has not answered its metrics endpoint for 5 minutes."
+          runbook: "docs/runbooks/on-call.md"
+
+  - name: creditmate-infrastructure-use
+    rules:
+      - alert: CreditmateNodeDiskUsageHigh
+        expr: |
+          (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}
+               / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}) > 0.80
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Disk {{ $labels.mountpoint }} on {{ $labels.instance }} above 80%"
+          description: "{{ $value | humanizePercentage }} used."
+          runbook: "docs/runbooks/disk-usage.md"
+
+      - alert: CreditmateNodeDiskUsageCritical
+        expr: |
+          (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}
+               / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}) > 0.90
+        for: 10m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Disk {{ $labels.mountpoint }} on {{ $labels.instance }} above 90%"
+          description: "{{ $value | humanizePercentage }} used. Writes will start failing when the disk fills."
+          runbook: "docs/runbooks/disk-usage.md"
+
+      - alert: CreditmateNodeCPUUtilizationHigh
+        expr: 1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.90
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "CPU above 90% on {{ $labels.instance }}"
+          description: "{{ $value | humanizePercentage }} CPU utilization for 15 minutes. Check whether HPA has reached max replicas."
+          runbook: "docs/runbooks/high-latency.md"
+
+      - alert: CreditmateNodeCPUSaturated
+        expr: node_load1 / count by (instance) (node_cpu_seconds_total{mode="idle"}) > 2
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Run queue saturated on {{ $labels.instance }}"
+          description: "Load average is {{ $value | humanize }} per core."
+          runbook: "docs/runbooks/high-latency.md"
+
+      - alert: CreditmateNodeMemoryPressure
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Less than 10% memory available on {{ $labels.instance }}"
+          description: "Available memory is {{ $value | humanizePercentage }} of total."
+          runbook: "docs/runbooks/on-call.md"
+
+  - name: creditmate-kubernetes
+    rules:
+      - alert: CreditmatePodCrashLooping
+        expr: increase(kube_pod_container_status_restarts_total{namespace=~"creditmate-.*"}[15m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "{{ $labels.pod }} restarted {{ $value | humanize }} times in 15 minutes"
+          description: "Container {{ $labels.container }} in {{ $labels.namespace }} is crash-looping."
+          runbook: "docs/runbooks/on-call.md"
+
+      - alert: CreditmateDeploymentReplicasUnavailable
+        expr: kube_deployment_status_replicas_unavailable{namespace=~"creditmate-.*"} > 0
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "{{ $labels.deployment }} has unavailable replicas"
+          description: "{{ $value }} replicas of {{ $labels.deployment }} in {{ $labels.namespace }} have not been ready for 15 minutes."
+          runbook: "docs/runbooks/rollback.md"
+
+      - alert: CreditmateHPAAtMaxReplicas
+        expr: |
+          kube_horizontalpodautoscaler_status_current_replicas{namespace=~"creditmate-.*"}
+            >= kube_horizontalpodautoscaler_spec_max_replicas{namespace=~"creditmate-.*"}
+        for: 30m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "{{ $labels.horizontalpodautoscaler }} is pinned at max replicas"
+          description: "Autoscaling cannot absorb the load. Investigate before raising the limit."
+          runbook: "docs/runbooks/high-latency.md"
+
+  - name: creditmate-dependencies
+    rules:
+      - alert: CreditmateRedisDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Redis is unreachable"
+          description: "Cache and Celery broker are unavailable. Sessions and queued tasks are at risk."
+          runbook: "docs/runbooks/on-call.md"
+
+      - alert: CreditmatePostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "PostgreSQL is unreachable"
+          description: "The application cannot serve requests without its database."
+          runbook: "docs/runbooks/on-call.md"
+
+      - alert: CreditmateElasticsearchRed
+        expr: elasticsearch_cluster_health_status{color="red"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Elasticsearch cluster status is red"
+          description: "Some primary shards are unassigned. Search results will be incomplete."
+          runbook: "docs/runbooks/on-call.md"
