@@ -1,0 +1,31 @@
+# PodDisruptionBudgets for voluntary disruptions (node drains, cluster upgrades).
+# maxUnavailable: 1 keeps drains possible even when a deployment runs a single replica.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: creditmate-frontend
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: creditmate-frontend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: creditmate-backend
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: creditmate-backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: creditmate-celery-worker
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: creditmate-celery-worker

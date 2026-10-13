@@ -1,0 +1,105 @@
+# Backend API: Django served by gunicorn. Liveness uses /api/healthz/ (process only),
+# readiness uses /api/readyz/ (database, Redis and Elasticsearch reachable). The /api
+# prefix matches the ingress route, so the same paths work from outside the cluster.
+# Endpoint paths are assumptions; the backend must implement them (see monitoring/health-checks.md).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: creditmate-backend
+  labels:
+    app.kubernetes.io/name: creditmate-backend
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: creditmate-backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: creditmate-backend
+        app.kubernetes.io/component: api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 45
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: creditmate-backend
+      containers:
+        - name: backend
+          image: ghcr.io/avoid-ashraful/creditmate-ai-be:REPLACE_ME_IMAGE_TAG
+          imagePullPolicy: IfNotPresent
+          command:
+            - gunicorn
+            - credit_mate_ai.wsgi:application
+            - --bind=0.0.0.0:8000
+            - --workers=3
+            - --timeout=30
+            - --graceful-timeout=30
+            - --access-logfile=-
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: creditmate-config
+            - secretRef:
+                name: creditmate-backend-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          startupProbe:
+            httpGet:
+              path: /api/healthz/
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/readyz/
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/healthz/
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

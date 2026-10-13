@@ -1,0 +1,20 @@
+# Non-secret runtime configuration shared by the backend and Celery pods.
+# Every REPLACE_ME value is overwritten in the overlay for that environment.
+# Variable names are assumptions to confirm against creditmate-ai-be settings.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: creditmate-config
+data:
+  DJANGO_SETTINGS_MODULE: "credit_mate_ai.settings"
+  DJANGO_DEBUG: "0"
+  DJANGO_ALLOWED_HOSTS: "REPLACE_ME_ALLOWED_HOSTS"
+  DJANGO_CSRF_TRUSTED_ORIGINS: "https://REPLACE_ME_HOST"
+  DATABASE_HOST: "REPLACE_ME_DB_HOST"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "REPLACE_ME_DB_NAME"
+  DATABASE_USER: "REPLACE_ME_DB_USER"
+  REDIS_URL: "redis://REPLACE_ME_REDIS_HOST:6379/0"
+  CELERY_BROKER_URL: "redis://REPLACE_ME_REDIS_HOST:6379/1"
+  ELASTICSEARCH_URL: "https://REPLACE_ME_ES_HOST:9200"
+  LOG_LEVEL: "INFO"

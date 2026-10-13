@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: creditmate-backend
+  labels:
+    app.kubernetes.io/name: creditmate-backend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: creditmate-backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

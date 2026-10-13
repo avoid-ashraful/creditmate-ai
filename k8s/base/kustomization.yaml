@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Environment-agnostic base. Overlays set the namespace, image tags, hosts and
+# scaling bounds. Nothing in this directory contains real secret values.
+resources:
+  - configmap.yaml
+  - external-secret.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+  - backend-deployment.yaml
+  - backend-service.yaml
+  - celery-worker-deployment.yaml
+  - celery-beat-deployment.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - ingress.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: creditmate
+    includeSelectors: false
