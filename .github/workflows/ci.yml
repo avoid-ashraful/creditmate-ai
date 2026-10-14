@@ -155,10 +155,8 @@ jobs:
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
       - run: npm ci --legacy-peer-deps
-      - uses: actions/download-artifact@v4 # tag used: no verified offline SHA catalog
-        with:
-          name: frontend-production-build
-          path: creditmate-ai-fe/build
+      - name: Build with mocked API base for e2e
+        run: CI=true REACT_APP_API_BASE_URL=http://e2e.invalid/api/v1 REACT_APP_ENABLE_API_LOGGING=false npm run build
       - uses: actions/cache@v4 # tag used: no verified offline SHA catalog
         id: playwright-cache
         with:
@@ -173,7 +171,7 @@ jobs:
           npx wait-on http://127.0.0.1:4173
           npx playwright test --grep-invert '@visual|visual'
         env:
-          BASE_URL: http://127.0.0.1:4173
+          E2E_BASE_URL: http://127.0.0.1:4173
       - if: always()
         run: if [ -f /tmp/creditmate-serve.pid ]; then kill "$(cat /tmp/creditmate-serve.pid)"; fi
 
@@ -198,10 +196,8 @@ jobs:
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
       - run: npm ci --legacy-peer-deps
-      - uses: actions/download-artifact@v4 # tag used: no verified offline SHA catalog
-        with:
-          name: frontend-production-build
-          path: creditmate-ai-fe/build
+      - name: Build with mocked API base for e2e
+        run: CI=true REACT_APP_API_BASE_URL=http://e2e.invalid/api/v1 REACT_APP_ENABLE_API_LOGGING=false npm run build
       - uses: actions/cache@v4 # tag used: no verified offline SHA catalog
         with:
           path: ~/.cache/ms-playwright
@@ -213,7 +209,7 @@ jobs:
           npx wait-on http://127.0.0.1:4173
           npx playwright test --grep '@visual|visual'
         env:
-          BASE_URL: http://127.0.0.1:4173
+          E2E_BASE_URL: http://127.0.0.1:4173
       - if: always()
         run: if [ -f /tmp/creditmate-serve.pid ]; then kill "$(cat /tmp/creditmate-serve.pid)"; fi
 
