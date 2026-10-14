@@ -1,0 +1,11 @@
+# Secrets: real environment files stay local. Templates (*.example, *.tmpl) are committed.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Generated build and test output (never stage these with `git add -A`).
+build/
+node_modules/
+test-results/
+playwright-report/

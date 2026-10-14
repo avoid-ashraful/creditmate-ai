@@ -1,0 +1,55 @@
+# Data-quality alerts for the extraction pipeline (task 2.2).
+# Inputs are postgres_exporter custom queries over the dq_monitor views
+# (monitoring/postgres-exporter/data-quality-queries.yaml). Thresholds match
+# dq_monitor.thresholds (monitoring/sql/data_quality_views.sql) and
+# banks/services/quality_dashboard.py. Keep all three in step.
+#
+# These are warnings, not pages: extraction quality changes on crawl cadence, not
+# in minutes. Warnings go to Slack via alertmanager.yml.tmpl. A bank with no
+# scored or completed-or-failed content has no series, so it never alerts.
+groups:
+  - name: creditmate-data-quality
+    rules:
+      - alert: CreditmateDataQualityLowConfidence
+        expr: pg_dq_confidence_latest < 0.5
+        for: 1h
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Overall extraction confidence below 0.5"
+          description: "The 7-day average extraction confidence (30-day when there is no 7-day data) is below 0.5 across all banks."
+          runbook: "docs/runbooks/data-quality.md"
+
+      - alert: CreditmateDataQualityLowSuccessRate
+        expr: pg_dq_success_rate < 0.7
+        for: 1h
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Overall extraction success rate below 70%"
+          description: "completed / (completed + failed) across all crawled content is below 70%."
+          runbook: "docs/runbooks/data-quality.md"
+
+      - alert: CreditmateBankDataQualityLowConfidence
+        expr: pg_dq_bank_confidence_latest < 0.5
+        for: 1h
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "{{ $labels.bank_name }}: extraction confidence below 0.5"
+          description: "The latest average extraction confidence for {{ $labels.bank_name }} (banks_bank.id {{ $labels.bank_id }}) is below 0.5."
+          runbook: "docs/runbooks/data-quality.md"
+
+      - alert: CreditmateBankDataQualityLowSuccessRate
+        expr: pg_dq_bank_success_rate < 0.7
+        for: 1h
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "{{ $labels.bank_name }}: extraction success rate below 70%"
+          description: "completed / (completed + failed) for {{ $labels.bank_name }} (banks_bank.id {{ $labels.bank_id }}) is below 70%."
+          runbook: "docs/runbooks/data-quality.md"

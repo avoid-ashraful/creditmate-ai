@@ -1,0 +1,49 @@
+# Public entry point (ingress-nginx). TLS certificates come from cert-manager.
+# Rate limiting and the WAF (ModSecurity + OWASP CRS) are enabled per ingress.
+# /api and /admin go to the backend; everything else goes to the frontend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: creditmate-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: REPLACE_ME_CLUSTER_ISSUER
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/limit-rps: "20"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+    nginx.ingress.kubernetes.io/limit-connections: "20"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - secretName: creditmate-tls
+      hosts:
+        - REPLACE_ME_HOST
+  rules:
+    - host: REPLACE_ME_HOST
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: creditmate-backend
+                port:
+                  name: http
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: creditmate-backend
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: creditmate-frontend
+                port:
+                  name: http

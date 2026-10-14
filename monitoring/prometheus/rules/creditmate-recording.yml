@@ -1,0 +1,23 @@
+# RED-method recording rules for the Django backend, per view and method.
+# Assumes the backend exposes django-prometheus metrics on /metrics (see monitoring/health-checks.md).
+groups:
+  - name: creditmate-red-recording
+    interval: 30s
+    rules:
+      - record: creditmate:http_requests:rate5m
+        expr: sum by (view, method) (rate(django_http_requests_total_by_view_transport_method_total[5m]))
+
+      - record: creditmate:http_errors:rate5m
+        expr: sum by (view, method) (rate(django_http_responses_total_by_status_view_method_total{status=~"5.."}[5m]))
+
+      - record: creditmate:http_error_ratio:rate5m
+        expr: creditmate:http_errors:rate5m / creditmate:http_requests:rate5m
+
+      - record: creditmate:http_error_ratio_global:rate5m
+        expr: sum(creditmate:http_errors:rate5m) / sum(creditmate:http_requests:rate5m)
+
+      - record: creditmate:http_request_duration_seconds:p99_5m
+        expr: histogram_quantile(0.99, sum by (le, view) (rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])))
+
+      - record: creditmate:http_request_duration_seconds:p99_global_5m
+        expr: histogram_quantile(0.99, sum by (le) (rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])))

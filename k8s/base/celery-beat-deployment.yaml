@@ -1,0 +1,78 @@
+# Celery beat (periodic task scheduler). MUST run as a single replica: two beats
+# would enqueue every scheduled task twice. Recreate strategy avoids overlap on deploy.
+# No PodDisruptionBudget on purpose: with one replica, a PDB would block node drains.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: creditmate-celery-beat
+  labels:
+    app.kubernetes.io/name: creditmate-celery-beat
+    app.kubernetes.io/component: scheduler
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: creditmate-celery-beat
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: creditmate-celery-beat
+        app.kubernetes.io/component: scheduler
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: beat
+          image: ghcr.io/avoid-ashraful/creditmate-ai-be:REPLACE_ME_IMAGE_TAG
+          imagePullPolicy: IfNotPresent
+          command:
+            - celery
+            - -A
+            - credit_mate_ai
+            - beat
+            - --loglevel=INFO
+            - --schedule=/tmp/celerybeat-schedule
+            - --pidfile=/tmp/celerybeat.pid
+          envFrom:
+            - configMapRef:
+                name: creditmate-config
+            - secretRef:
+                name: creditmate-backend-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          # Process-level liveness only: beat does not answer `inspect ping`.
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - test -s /tmp/celerybeat.pid && kill -0 "$(cat /tmp/celerybeat.pid)"
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

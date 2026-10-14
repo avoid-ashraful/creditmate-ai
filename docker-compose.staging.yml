@@ -1,0 +1,120 @@
+# Staging stack on a single host (Docker Compose). Mirrors the Kubernetes staging overlay.
+#
+# Usage (secrets live in .env.staging, which is git-ignored):
+#   cp .env.staging.example .env.staging   # then fill every REPLACE_ME value
+#   docker compose --env-file .env.staging -f docker-compose.staging.yml config -q
+#   docker compose --env-file .env.staging -f docker-compose.staging.yml up -d
+#
+# Only the frontend and backend publish ports, and only on 127.0.0.1 (put a TLS reverse
+# proxy in front). Postgres, Redis and Elasticsearch are reachable only on the compose network.
+name: creditmate-staging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env.staging}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.staging}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.staging}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.staging}", "--appendonly", "yes"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.staging}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env.staging}
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u elastic:$$ELASTIC_PASSWORD http://localhost:9200/_cluster/health >/dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  backend:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE in .env.staging}
+    restart: unless-stopped
+    env_file: .env.staging
+    command: ["gunicorn", "credit_mate_ai.wsgi:application", "--bind=0.0.0.0:8000", "--workers=3", "--timeout=30", "--access-logfile=-"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/healthz/', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  celery-worker:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE in .env.staging}
+    restart: unless-stopped
+    env_file: .env.staging
+    command: ["celery", "-A", "credit_mate_ai", "worker", "--loglevel=INFO", "--concurrency=2"]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  celery-beat:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE in .env.staging}
+    restart: unless-stopped
+    env_file: .env.staging
+    # Exactly one beat per environment; a second instance double-schedules every task.
+    command: ["celery", "-A", "credit_mate_ai", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?set FRONTEND_IMAGE in .env.staging}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres-data:
+  redis-data:
+  es-data:

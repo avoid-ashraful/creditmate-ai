@@ -1,0 +1,93 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Staging: staging.creditmate.ai. Uses its own database, Redis and Elasticsearch
+# (every REPLACE_ME host below must point at staging-only infrastructure, never prod).
+namespace: creditmate-staging
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+images:
+  - name: ghcr.io/avoid-ashraful/creditmate-ai-fe
+    newTag: REPLACE_ME_IMAGE_TAG
+  - name: ghcr.io/avoid-ashraful/creditmate-ai-be
+    newTag: REPLACE_ME_IMAGE_TAG
+
+patches:
+  - target:
+      kind: Ingress
+      name: creditmate-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: staging.creditmate.ai
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: staging.creditmate.ai
+  - target:
+      kind: ConfigMap
+      name: creditmate-config
+    patch: |-
+      - op: replace
+        path: /data/DJANGO_ALLOWED_HOSTS
+        value: staging.creditmate.ai
+      - op: replace
+        path: /data/DJANGO_CSRF_TRUSTED_ORIGINS
+        value: https://staging.creditmate.ai
+      - op: replace
+        path: /data/DATABASE_HOST
+        value: REPLACE_ME_STAGING_DB_HOST
+      - op: replace
+        path: /data/DATABASE_NAME
+        value: REPLACE_ME_STAGING_DB_NAME
+      - op: replace
+        path: /data/DATABASE_USER
+        value: REPLACE_ME_STAGING_DB_USER
+      - op: replace
+        path: /data/REDIS_URL
+        value: redis://REPLACE_ME_STAGING_REDIS_HOST:6379/0
+      - op: replace
+        path: /data/CELERY_BROKER_URL
+        value: redis://REPLACE_ME_STAGING_REDIS_HOST:6379/1
+      - op: replace
+        path: /data/ELASTICSEARCH_URL
+        value: https://REPLACE_ME_STAGING_ES_HOST:9200
+  - target:
+      kind: ExternalSecret
+      name: creditmate-backend-secrets
+    patch: |-
+      - op: replace
+        path: /spec/dataFrom/0/extract/key
+        value: creditmate/staging/backend
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: creditmate-frontend
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: creditmate-backend
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: creditmate-celery-worker
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
