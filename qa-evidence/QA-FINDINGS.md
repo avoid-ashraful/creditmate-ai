@@ -111,7 +111,52 @@ Severity: **P0** blocker / **P1** high / **P2** medium / **P3** low.
 
 ---
 
-## 5. Method & limitations
+## 5. GitHub issues filed
+
+All issues were filed in **`avoid-ashraful/creditmate-ai`** (labels: `bug`, `priority:P1…P3`, `accessibility`) with screenshots embedded from the `qa/evidence-2026-10-19` branch.
+
+| Issue | Finding |
+|---|---|
+| [#87](https://github.com/avoid-ashraful/creditmate-ai/issues/87) | [FE][P1] Mobile header navigation overflows viewport with no menu (QA-FE-01) |
+| [#88](https://github.com/avoid-ashraful/creditmate-ai/issues/88) | [FE][P1] Home category cards render 20px body text, breaking the grid (QA-FE-02) |
+| [#89](https://github.com/avoid-ashraful/creditmate-ai/issues/89) | [FE][P1] Advanced Search pagination stuck on page 1 (QA-FE-03) |
+| [#90](https://github.com/avoid-ashraful/creditmate-ai/issues/90) | [FE][P1] Saved collection "Copy share link" always fails (QA-FE-04) |
+| [#91](https://github.com/avoid-ashraful/creditmate-ai/issues/91) | [FE][P1] Customer Reviews fail for anonymous users after 5 views (QA-FE-05) |
+| [#92](https://github.com/avoid-ashraful/creditmate-ai/issues/92) | [FE][P2] Quiz allows skipping every question (QA-FE-06) |
+| [#93](https://github.com/avoid-ashraful/creditmate-ai/issues/93) | [FE][P2] "Share This Comparison" label reused incorrectly (QA-FE-07) |
+| [#94](https://github.com/avoid-ashraful/creditmate-ai/issues/94) | [FE][P2] "Save search" button is a no-op (QA-FE-08) |
+| [#95](https://github.com/avoid-ashraful/creditmate-ai/issues/95) | [FE][P2] Bengali translation gaps (QA-FE-09) |
+| [#96](https://github.com/avoid-ashraful/creditmate-ai/issues/96) | [FE][P3] Network error labelled "Card Not Found" (QA-FE-10) |
+| [#97](https://github.com/avoid-ashraful/creditmate-ai/issues/97) | [FE][P3] No card artwork renders anywhere (QA-FE-11) |
+| [#98](https://github.com/avoid-ashraful/creditmate-ai/issues/98) | [FE][P3] a11y: `link-in-text-block` on home/category (QA-FE-12) |
+| [#99](https://github.com/avoid-ashraful/creditmate-ai/issues/99) | [FE][P3] `node_modules`/lock drift breaks tsc, Jest, dev server (QA-FE-15) |
+| [#100](https://github.com/avoid-ashraful/creditmate-ai/issues/100) | [BE][P1] Public review list throttled 5/hour for anonymous users (QA-BE-01) |
+| [#101](https://github.com/avoid-ashraful/creditmate-ai/issues/101) | [BE][P1] Non-integer query params → HTTP 500 HTML traceback (QA-BE-03) |
+| [#102](https://github.com/avoid-ashraful/creditmate-ai/issues/102) | [BE][P1] Draft cards leak via public shared comparisons (QA-BE-02) |
+| [#103](https://github.com/avoid-ashraful/creditmate-ai/issues/103) | [BE][P2] Cross-user logout can blacklist another user's refresh token (QA-BE-04) |
+| [#104](https://github.com/avoid-ashraful/creditmate-ai/issues/104) | [BE][P2] Password change does not invalidate access tokens (QA-BE-05) |
+| [#105](https://github.com/avoid-ashraful/creditmate-ai/issues/105) | [BE][P2] `has_lounge_access` false positives (QA-BE-06) |
+| [#106](https://github.com/avoid-ashraful/creditmate-ai/issues/106) | [BE][P2] Advanced-search filters ignored; travel ordering lexicographic (QA-BE-07) |
+| [#107](https://github.com/avoid-ashraful/creditmate-ai/issues/107) | [BE][P3] `/api/search/status` 500s; catalogue data gaps (QA-BE-09/10) |
+
+## 6. Verified working (positive coverage)
+
+- Search: `brac` → 10 cards; nonsense → "Category not found" empty state; autocomplete (`visa`, `city bank`) returns grouped suggestions.
+- Filters/sort on Advanced Search: sort by annual fee works (first card BDT 0); positive filters (bank, lounge, fee, network, Islamic, dual-currency) return correct counts.
+- Home "Load More": 10 → 20 cards. Compare selection limit (4) enforced with message.
+- Comparison page: `?ids=` loads cards; sharing works; saving requires login and redirects to `/login` correctly.
+- Calculator: 5 spend inputs, ranked results, negative-input validation.
+- Auth: register → login, protected-route redirects, account page, email-verification notice.
+- Watch/alerts: watch toggle persists and appears on `/alerts` with preferences.
+- Report an issue: dialog validates and shows a success confirmation.
+- Glossary search (53 → 1 term for "lounge") and Guides index (28 links).
+- Dark mode toggles, persists to `localStorage`, applies `<html class="dark">`.
+- 404 route and invalid share-token state render friendly messages.
+- No uncaught JS errors on the routes exercised (aside from the documented 500/429 API responses).
+
+---
+
+## 7. Method & limitations
 
 - Backend and frontend were run locally; the frontend was exercised through a **production** build (the CRA dev server displayed a TS-warning overlay caused by the stale `node_modules`).
 - Playwright Chromium on this host only runs with `--single-process`, so page/context teardown is unsupported; scripts reuse one page and navigate sequentially.
