@@ -1,0 +1,38 @@
+{
+  "steps": [
+    {
+      "i": 0,
+      "label": "Step 1 of 5",
+      "options": 0
+    },
+    {
+      "i": 1,
+      "label": "Step 2 of 5",
+      "options": 5
+    },
+    {
+      "i": 2,
+      "label": "Step 3 of 5",
+      "options": 3
+    },
+    {
+      "i": 3,
+      "label": "Step 4 of 5",
+      "options": 4
+    },
+    {
+      "i": 4,
+      "label": "Step 5 of 5",
+      "options": 3
+    }
+  ],
+  "noAnswerResult": {
+    "reachedResults": 1,
+    "cards": 3,
+    "text": "Your Top Recommendations\n#1\nMatch score: 180\nMastercard TARA World Credit Card\nBRAC Bank PLC\nMastercard\nAnnual fee:\nBDT 5,000\nInterest Rate (APR):\n22% APR\nLounge Access:\n4 free visits/year (Int'l) / Balaka Executive Lounge (HSIA Dhaka): unlimited visits for cardholder plus any… (Domestic)\nRewards\n\n6"
+  },
+  "resultCards": 3,
+  "resultsText": "Your Top Recommendations\n#1\nMatch score: 176\nMastercard Millennial Titanium Credit Card\nBRAC Bank PLC\nMastercard\nAnnual fee:\nBDT 3,000\nInterest Rate (APR):\n25% APR\nLounge Access:\n2 free visits/year (Int'l) / Balaka Executive Lounge (HSIA Dhaka): unlimited visits for cardholder only (Domestic)\nRewards\n\n5X reward points for every BDT 80 spent every month on Foodpanda…\n\nKey Features\nAnnual fee details: Annual Fee- Primary Card: TK. 3,000\nShare This Comparison\nWhy this card:\nCompetitive rewards program\n#2\nMatch score: 174\nMastercard World Credit Card\nBRAC Bank PLC\nMastercard\nAnnual fee:\nBDT 5,000\nInterest Rate (APR):\n25% APR\nLounge Access:\n4 free visits/year (Int'l) / Balaka Executive Lounge (HS",
+  "shareUrl": "http://127.0.0.1:3000/perfect-card-finder",
+  "errors": []
+}

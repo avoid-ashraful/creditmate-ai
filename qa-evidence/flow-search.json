@@ -1,0 +1,20 @@
+{
+  "initialUrl": "http://127.0.0.1:3000/search?page_size=20&facets=bank%2Ccategory%2Cannual_fee_range%2Cinterest_rate_range%2Clounge_access%2Cfee_waiver%2Chas_annual_fee%2Ccard_network%2Cis_islamic%2Cis_dual_currency&ordering=relevance",
+  "totalText": "Showing 20 of 105 cards\nSource: Database\nResults per page\n10 per page\n20 per page\n50 per page\n100 per page",
+  "firstCard": "Diners Club Emerald Credit Card",
+  "paginationExists": 1,
+  "paginationText": "‹ Previous\nPage 1 of 6\nNext ›",
+  "nextBtnText": "Next ›",
+  "urlAfterNext": "http://127.0.0.1:3000/search?page_size=20&facets=bank%2Ccategory%2Cannual_fee_range%2Cinterest_rate_range%2Clounge_access%2Cfee_waiver%2Chas_annual_fee%2Ccard_network%2Cis_islamic%2Cis_dual_currency&ordering=relevance",
+  "firstCardAfterNext": "Diners Club Emerald Credit Card",
+  "pageIndicator": "‹ Previous\nPage 1 of 6\nNext ›",
+  "sortExists": 1,
+  "urlAfterSort": "http://127.0.0.1:3000/search?page_size=20&facets=bank%2Ccategory%2Cannual_fee_range%2Cinterest_rate_range%2Clounge_access%2Cfee_waiver%2Chas_annual_fee%2Ccard_network%2Cis_islamic%2Cis_dual_currency&ordering=annual_fee",
+  "firstCardAfterSort": "CPA-Prime Bank Co-Branded Visa Platinum Card",
+  "firstFeeAfterSort": "BDT 0",
+  "loungeExists": 0,
+  "saveSearchExists": 1,
+  "saveSearchUrlChanged": false,
+  "saveSearchMsg": "",
+  "errors": []
+}

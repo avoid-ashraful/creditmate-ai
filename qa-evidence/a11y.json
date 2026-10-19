@@ -1,0 +1,29 @@
+{
+  "home": [
+    {
+      "id": "link-in-text-block",
+      "impact": "serious",
+      "nodes": 7,
+      "help": "Links must be distinguishable without relying on color",
+      "sample": "<a class=\"card-detail-link\" href=\"/card/brac-bank-plc/diners-club-emerald-credit-card\">Share This Comparison</a>"
+    }
+  ],
+  "search": [],
+  "compare": [],
+  "quiz": [],
+  "calculator": [],
+  "card": [],
+  "login": [],
+  "register": [],
+  "guides": [],
+  "glossary": [],
+  "category": [
+    {
+      "id": "link-in-text-block",
+      "impact": "serious",
+      "nodes": 5,
+      "help": "Links must be distinguishable without relying on color",
+      "sample": "<a class=\"card-detail-link\" href=\"/card/eastern-bank-plc/ebl-wander-woman-co-brand-credit-mastercard\">Share This Comparison</a>"
+    }
+  ]
+}

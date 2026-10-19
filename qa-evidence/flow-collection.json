@@ -1,0 +1,12 @@
+{
+  "loginUrl": "http://127.0.0.1:3000/account",
+  "collectionsText": "Saved comparisons & collections\nComparisons\n\nNothing saved yet.\n\nCollections\nName\nNew collection\nQA UI Collection 1792424408936\nRename\nDelete\nCopy share link",
+  "listItems": 1,
+  "shareBtnCount": 1,
+  "shareBtnText": "Copy share link",
+  "alertText": "Something went wrong. Please try again.",
+  "afterShareText": "Saved comparisons & collections\n\nSomething went wrong. Please try again.\n\nComparisons\n\nNothing saved yet.\n\nCollections\nName\nNew collection\nQA UI Collection 1792424408936\nRename\nDelete\nCopy share link",
+  "collectionPageUrl": "http://127.0.0.1:3000/saved/collections/10",
+  "collectionPageText": "Skip to main content\nCreditMate AI\nHome\nAdvanced Search\nQuiz\nCompare Cards\nReward Calculator\nGuides\nGlossary\nAbout\nBengali\n🌙\nDark\nqa-ui-1792424331655@example.com\n← Saved comparisons & collections\nQA UI Collection 1792424408936\n\nAdd card ID\nCreate\nCards\n\nNothing saved yet.\n\nCreditMate AI\n\nMaking financial decisions simpler for Bangladeshi consumers.\n\nQuick Links\nHome\nAdvanced Search\nQuiz\nCompare Cards\nReward Calculator\nGuides\nGlossary\nAbout\nLegal\nTerms of Service\nPrivacy Policy\nDisclaimer: data ",
+  "errors": []
+}
