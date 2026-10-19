@@ -9,3 +9,6 @@ build/
 node_modules/
 test-results/
 playwright-report/
+
+# Local dev stack state (scripts/dev-up.sh)
+/.dev-run/
