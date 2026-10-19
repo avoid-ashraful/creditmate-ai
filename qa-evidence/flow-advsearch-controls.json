@@ -1,0 +1,28 @@
+{
+  "page": "/search",
+  "header": "Showing 20 of 105 cards",
+  "renderedCardsInitially": 10,
+  "loadMoreButtons": [
+    "Load more cards (10 remaining)",
+    "Load more cards"
+  ],
+  "paginationText": "\u2039 Previous\nPage 1 of 6\nNext \u203a",
+  "internalLoadMore": {
+    "before": { "renderedCards": 10, "buttonText": "Load more cards (10 remaining)" },
+    "t_plus_0ms": { "renderedCards": 20, "buttonRendered": false },
+    "t_plus_100ms": { "renderedCards": 10, "buttonText": "Load more cards (10 remaining)", "buttonNodeReplaced": true },
+    "after_1s": { "renderedCards": 10 }
+  },
+  "networkCallsTriggeredByOneInternalLoadMoreClick": [
+    "GET /api/v1/credit-cards/advanced-search/?page=1&page_size=20&...&ordering=relevance",
+    "GET /api/v1/credit-cards/advanced-search/?page=1&page_size=20&...&ordering=relevance",
+    "GET /api/v1/credit-cards/advanced-search/?page=1&page_size=20&...&ordering=relevance",
+    "GET /api/v1/credit-cards/advanced-search/?page=1&page_size=20&...&ordering=relevance"
+  ],
+  "comparison": {
+    "home": { "before": 10, "afterInternalLoadMore": 20, "button": "Load more cards (95 remaining)" },
+    "category/travel": { "before": 10, "afterInternalLoadMore": 20, "button": "Load more cards (70 remaining)" },
+    "search": { "before": 10, "afterInternalLoadMore": 10, "stuck": true }
+  },
+  "impact": "Advanced Search can never show more than the first 10 results; the Load more button flashes 20 items then snaps back to 10 and re-runs the full search 4x."
+}
