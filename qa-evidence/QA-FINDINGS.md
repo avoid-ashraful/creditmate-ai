@@ -43,6 +43,7 @@ Severity: **P0** blocker / **P1** high / **P2** medium / **P3** low.
 | QA-FE-12 | P3 | **Accessibility (axe): `link-in-text-block` (serious)** on `/` (7 nodes) and `/category/*` (5 nodes) — links ("Share This Comparison") rely on colour alone. Evidence: `a11y.json`. |
 | QA-FE-13 | P3 | **Theme toggle always reads "Dark"** even when dark mode is active (icon changes to ☀️, label does not). Evidence: `flow-dark-home2.png`, `flow-dark-errors.json`. |
 | QA-FE-14 | P3 | **Collection detail requires typing a raw numeric card ID** ("Add card ID / Create"), which no user can know. A card picker/autocomplete is expected. Evidence: `flow-collection-page.png`. |
+| QA-FE-16 | P1 | **Advanced Search results are capped at the first 10 cards; "Load more" does not work.** The header says "Showing 20 of 105 cards" but only 10 render. Clicking the CardList "Load more cards (10 remaining)" flashes 20 items for one frame, then remounts and snaps back to 10 (its internal `displayLimit` state is reset), firing 4 duplicate `advanced-search` requests. The same control works on Home (10→20) and `/category/*` (10→20). The page also has three overlapping pagination affordances (CardList internal load-more, page-level load-more, Previous/Next). Evidence: `flow-advsearch-controls.json`, `fe-16-advsearch-controls.png`. |
 | QA-FE-15 | P3 | **Local `node_modules` does not match `package.json`/`package-lock.json`** (msw installed 3.0.3 vs lock 1.3.5; @testing-library/react 13.4.0 vs 16.3.3; user-event 13.5.0 vs 14.5.2). This makes `npx tsc --noEmit` fail on `msw` types, makes Jest fail (26/78 suites), and causes the CRA dev-server "Compiled with problems" overlay. A fresh `npm ci` is required. Evidence: `findings-frontend-audit.md`, build log. |
 
 ### 2.2 Backend / API
@@ -130,6 +131,7 @@ All issues were filed in **`avoid-ashraful/creditmate-ai`** (labels: `bug`, `pri
 | [#97](https://github.com/avoid-ashraful/creditmate-ai/issues/97) | [FE][P3] No card artwork renders anywhere (QA-FE-11) |
 | [#98](https://github.com/avoid-ashraful/creditmate-ai/issues/98) | [FE][P3] a11y: `link-in-text-block` on home/category (QA-FE-12) |
 | [#99](https://github.com/avoid-ashraful/creditmate-ai/issues/99) | [FE][P3] `node_modules`/lock drift breaks tsc, Jest, dev server (QA-FE-15) |
+| [#108](https://github.com/avoid-ashraful/creditmate-ai/issues/108) | [FE][P1] Advanced Search results capped at 10; "Load more" broken (QA-FE-16) |
 | [#100](https://github.com/avoid-ashraful/creditmate-ai/issues/100) | [BE][P1] Public review list throttled 5/hour for anonymous users (QA-BE-01) |
 | [#101](https://github.com/avoid-ashraful/creditmate-ai/issues/101) | [BE][P1] Non-integer query params → HTTP 500 HTML traceback (QA-BE-03) |
 | [#102](https://github.com/avoid-ashraful/creditmate-ai/issues/102) | [BE][P1] Draft cards leak via public shared comparisons (QA-BE-02) |
@@ -146,7 +148,8 @@ All issues were filed in **`avoid-ashraful/creditmate-ai`** (labels: `bug`, `pri
 - Home "Load More": 10 → 20 cards. Compare selection limit (4) enforced with message.
 - Comparison page: `?ids=` loads cards; sharing works; saving requires login and redirects to `/login` correctly.
 - Calculator: 5 spend inputs, ranked results, negative-input validation.
-- Auth: register → login, protected-route redirects, account page, email-verification notice.
+- Auth: register → login, protected-route redirects, account page, email-verification notice; validation errors are safe and non-enumerating (login wrong/nonexistent both show "Invalid email or password."; register mismatch/weak/no-terms/duplicate all show "Please check the highlighted fields."; forgot-password and reset always show the generic "If an account exists…" message).
+- Advanced Search result set is correct (search "brac" → 10), page-size selector works (Showing 20 → 50), but the list itself is capped (see QA-FE-16).
 - Watch/alerts: watch toggle persists and appears on `/alerts` with preferences.
 - Report an issue: dialog validates and shows a success confirmation.
 - Glossary search (53 → 1 term for "lounge") and Guides index (28 links).

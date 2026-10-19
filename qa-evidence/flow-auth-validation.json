@@ -1,0 +1,40 @@
+{
+  "loginWrongPassword": {
+    "url": "http://127.0.0.1:3000/login",
+    "msg": "Invalid email or password."
+  },
+  "loginNonexistent": {
+    "url": "http://127.0.0.1:3000/login",
+    "msg": "Invalid email or password."
+  },
+  "regMismatch": {
+    "url": "http://127.0.0.1:3000/register",
+    "msg": "Please check the highlighted fields.",
+    "html5": ""
+  },
+  "regWeak": {
+    "url": "http://127.0.0.1:3000/register",
+    "msg": "Please check the highlighted fields.",
+    "html5": ""
+  },
+  "regNoTerms": {
+    "url": "http://127.0.0.1:3000/register",
+    "msg": "Please check the highlighted fields.",
+    "html5": ""
+  },
+  "regDuplicate": {
+    "url": "http://127.0.0.1:3000/register",
+    "msg": "Please check the highlighted fields.",
+    "html5": ""
+  },
+  "regBadEmail": {
+    "url": "http://127.0.0.1:3000/register",
+    "msg": "Please check the highlighted fields.",
+    "html5": "Please include an '@' in the email address. 'not-an-email' is missing an '@'."
+  },
+  "forgotFields": 1,
+  "forgotMsg": "Skip to main content\nCreditMate AI\nHome\nAdvanced Search\nQuiz\nCompare Cards\nReward Calculator\nGuides\nGlossary\nAbout\nBengali\n🌙\nDark\nLog in\nRegister\nReset your password\n\nIf an account exists for that email, we have sent password reset instructions. Check your inbox.\n\nBack to log in\n\nCreditMate AI\n\nMak",
+  "errors": [
+    "console: Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  ]
+}
