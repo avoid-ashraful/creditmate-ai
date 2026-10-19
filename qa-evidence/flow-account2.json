@@ -1,0 +1,17 @@
+{
+  "accountButtons": [],
+  "accountBody": "Skip to main content\nCreditMate AI\nHome\nAdvanced Search\nQuiz\nCompare Cards\nReward Calculator\nGuides\nGlossary\nAbout\nBengali\n🌙\nDark\nqa-ui-1792424331655@example.com\nYour account\n\nSigned in as\nqa-ui-1792424331655@example.com\n\nYour email address is not verified yet. You need it to post reviews.\n\nResend verification email\nMarketing emails\nYour data\n\nDownload a copy of the personal data we hold about you.\n\nDownload my data\nLog out\nDelete account\n\nThis permanently deletes your account, reviews, saved comparisons, collections and alerts. It cannot be undone.\n\nPassword\nI understand that my account and data will be deleted permanently.\nDelete my account\nCreditMate AI\n\nMaking financial decisions simpler for Bangladeshi consumers.\n\nQuick Links\nHome\nAdvanced Search\nQuiz\nCompare Cards\nReward Calculator\nGuides\nGlossary\nAbout\nLegal\nTerms of Service\nPrivacy Policy\nDisclaimer: data accuracy\nHow We Make Mo",
+  "resendMsg": "If an unverified account exists for that email, we have sent a new verification link.",
+  "savePrefsCount": 1,
+  "savePrefsMsg": "Preferences saved",
+  "guideHref": "/guides/choosing-your-first-credit-card",
+  "guideUrl": "http://127.0.0.1:3000/guides/choosing-your-first-credit-card",
+  "guideH1": "How to choose your first credit card",
+  "guideSections": 9,
+  "guideRelated": 17,
+  "compareCardsBefore": 20,
+  "compareBody": "Skip to main content\nCreditMate AI\nHome\nAdvanced Search\nQuiz\nCompare Cards\nReward Calculator\nGuides\nGlossary\nAbout\nBengali\n🌙\nDark\nqa-ui-1792424331655@example.com\nCredit Card Comparison\n← Back to All Cards\nShare Comparison\nSave comparison\n\nComparing Cards\n3\nDiners Club Emerald Credit Card\nBRAC Bank PLC\n×\nMastercard Millennial Titanium Credit Card\nBRAC Bank PLC\n×\nMastercard TARA World Credit Card\nBRAC Bank PLC\n×\nLegend & Methodology\n\nMultiple cards share the lowest annual fee of BDT 3,000\n\nFeature\t\nDiners Club Emerald Credit Card\nby BRAC Bank PLC\n\t\nMastercard Millennial Titanium Credit Card\nby ",
+  "removeBtnCount": 1,
+  "urlAfterRemove": "http://127.0.0.1:3000/compare?ids=2,3",
+  "errors": []
+}

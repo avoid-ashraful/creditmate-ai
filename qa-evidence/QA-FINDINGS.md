@@ -150,6 +150,8 @@ All issues were filed in **`avoid-ashraful/creditmate-ai`** (labels: `bug`, `pri
 - Calculator: 5 spend inputs, ranked results, negative-input validation.
 - Auth: register → login, protected-route redirects, account page, email-verification notice; validation errors are safe and non-enumerating (login wrong/nonexistent both show "Invalid email or password."; register mismatch/weak/no-terms/duplicate all show "Please check the highlighted fields."; forgot-password and reset always show the generic "If an account exists…" message).
 - Advanced Search result set is correct (search "brac" → 10), page-size selector works (Showing 20 → 50), but the list itself is capped (see QA-FE-16).
+- Account page: "Resend verification email" and data/delete sections render; alerts "Save preferences" confirms "Preferences saved".
+- Guides: index lists 28 guides; an article renders 9 sections + 17 related links. Compare page: removing a card updates `?ids=` correctly (`ids=1,2,3` → `ids=2,3`).
 - Watch/alerts: watch toggle persists and appears on `/alerts` with preferences.
 - Report an issue: dialog validates and shows a success confirmation.
 - Glossary search (53 → 1 term for "lounge") and Guides index (28 links).
