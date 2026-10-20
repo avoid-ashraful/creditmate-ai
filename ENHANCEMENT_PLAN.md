@@ -1,5 +1,8 @@
 # CreditMate AI - Enhancement Plan & Product Strategy
 
+The latest audit, market sources, delivery scope and prioritized follow-ups are in
+[the October 2026 product review](docs/PRODUCT_REVIEW_2026-10.md). This older plan is retained as historical context; several features listed below have already been implemented.
+
 ## Executive Summary
 
 CreditMate AI is a credit card comparison platform for Bangladesh with a solid MVP foundation. The project uses React/TypeScript frontend with Django REST Framework backend. Current state: **MVP Ready (95% complete)**. This document outlines a comprehensive enhancement roadmap to transform this into a production-grade, competitive platform.
