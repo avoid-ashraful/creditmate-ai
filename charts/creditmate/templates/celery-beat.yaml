@@ -1,0 +1,58 @@
+# Celery beat: MUST be exactly one replica (Recreate strategy) — two beats
+# would enqueue every scheduled task twice. No PDB on purpose.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "creditmate.beatName" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.beatName" . }}
+    app.kubernetes.io/component: scheduler
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.beatName" . }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "creditmate.beatName" . }}
+        app.kubernetes.io/component: scheduler
+        app.kubernetes.io/part-of: creditmate
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "creditmate.podSecurityContext" . | nindent 6 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: beat
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command:
+            - /app/.venv/bin/celery
+            - -A
+            - credit_mate_ai
+            - beat
+            - --loglevel=INFO
+            - --schedule=/tmp/celerybeat-schedule
+            - --pidfile=/tmp/celerybeat.pid
+          {{- include "creditmate.backendEnvFrom" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.celery.beat.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "test -s /tmp/celerybeat.pid && kill -0 \"$(cat /tmp/celerybeat.pid)\""]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- include "creditmate.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }

@@ -12,3 +12,6 @@ playwright-report/
 
 # Local dev stack state (scripts/dev-up.sh)
 /.dev-run/
+
+# Helm local secrets (throwaway laptop values / optional local provider keys)
+charts/creditmate/values-local-secrets.yaml

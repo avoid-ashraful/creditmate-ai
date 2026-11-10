@@ -1,0 +1,81 @@
+# Frontend: static Vite/React build served by unprivileged nginx.
+# NOTE: the current FE image listens on port 3000 (creditmate-ai-fe/nginx.conf),
+# correcting the old Kustomize manifest which assumed 8080. Probes hit `/`
+# because the SPA nginx has no dedicated health endpoint.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "creditmate.frontendName" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.frontendName" . }}
+    app.kubernetes.io/component: frontend
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.frontend.enabled }}
+  replicas: {{ .Values.frontend.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.frontendName" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "creditmate.frontendName" . }}
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: creditmate
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: frontend
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 3000 }
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          {{- include "creditmate.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: nginx-cache, mountPath: /var/cache/nginx }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: nginx-cache, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "creditmate.frontendName" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.frontendName" . }}
+    app.kubernetes.io/component: frontend
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "creditmate.frontendName" . }}
+  ports:
+    - { name: http, port: 80, targetPort: http }

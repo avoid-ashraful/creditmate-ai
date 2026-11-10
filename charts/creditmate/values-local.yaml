@@ -1,0 +1,48 @@
+# Local (k3d) values — in-cluster Postgres + Redis, self-signed TLS,
+# throwaway local-only secrets. Bring the cluster up with scripts/cluster-up.sh.
+#
+# Usage:
+#   helm install creditmate charts/creditmate -n creditmate \
+#     -f charts/creditmate/values-local.yaml \
+#     -f charts/creditmate/values-local-secrets.yaml   # git-ignored, from the .example
+
+config:
+  environment: local
+  debug: "True"
+  allowedHosts: "creditmate.localhost"
+  frontendUrl: "https://creditmate.localhost"
+  corsAllowedOrigins: "https://creditmate.localhost"
+  csrfTrustedOrigins: "https://creditmate.localhost"
+
+# Chart renders the backend Secret from values-local-secrets.yaml data.
+# The defaults below are documented throwaway values for a laptop cluster
+# only — they are not used anywhere else and must never be reused.
+secrets:
+  create: true
+  data:
+    SECRET_KEY: "local-dev-only-secret-key-not-used-anywhere-else-0123456789"
+    DB_PASSWORD: "local-dev-only-change-me"
+    METRICS_TOKEN: "local-dev-only-metrics-token"
+
+postgres:
+  enabled: true
+  password: "local-dev-only-change-me"  # must match secrets.data.DB_PASSWORD
+
+redis:
+  enabled: true
+
+ingress:
+  host: creditmate.localhost
+  clusterIssuer: creditmate-ca-issuer
+
+autoscaling:
+  api: { minReplicas: 1, maxReplicas: 4 }
+  frontend: { minReplicas: 1, maxReplicas: 3 }
+
+keda:
+  enabled: true
+  minReplicaCount: 1
+  maxReplicaCount: 4
+
+seed:
+  enabled: true

@@ -1,0 +1,89 @@
+{{- if .Values.migrate.enabled }}
+# Database migrations as a Helm hook Job: runs before install/upgrade serves
+# traffic. Closes the Kustomize gap "migrations are not run by these manifests".
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "creditmate.apiName" . }}-migrate
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.apiName" . }}-migrate
+    app.kubernetes.io/component: migrate
+    {{- include "creditmate.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "creditmate.apiName" . }}-migrate
+        app.kubernetes.io/component: migrate
+        app.kubernetes.io/part-of: creditmate
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "creditmate.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["/app/.venv/bin/python", "manage.py", "migrate", "--noinput"]
+          {{- include "creditmate.backendEnvFrom" . | nindent 10 }}
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          {{- include "creditmate.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+{{- end }}
+{{- if .Values.seed.enabled }}
+---
+# Optional LOCAL seed Job (post-install). Never enable outside local.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "creditmate.apiName" . }}-seed
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.apiName" . }}-seed
+    app.kubernetes.io/component: seed
+    {{- include "creditmate.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "creditmate.apiName" . }}-seed
+        app.kubernetes.io/component: seed
+        app.kubernetes.io/part-of: creditmate
+    spec:
+      restartPolicy: Never
+      {{- include "creditmate.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: seed
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command:
+            {{- toYaml .Values.seed.command | nindent 12 }}
+          {{- include "creditmate.backendEnvFrom" . | nindent 10 }}
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          {{- include "creditmate.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+{{- end }}

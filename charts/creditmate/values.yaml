@@ -1,0 +1,196 @@
+# CreditMate platform chart — safe defaults.
+# Nothing environment-specific and NO secret values belong in this file.
+# Layer an environment file on top:
+#   helm install creditmate charts/creditmate -f charts/creditmate/values-local.yaml
+#   helm install creditmate charts/creditmate -f charts/creditmate/values-staging.yaml
+#   helm install creditmate charts/creditmate -f charts/creditmate/values-production.yaml
+# Local secrets (git-ignored):
+#   helm install ... -f charts/creditmate/values-local-secrets.yaml   (see the .example file)
+
+# -- Global image pull secrets (names of pre-created Secrets, e.g. for GHCR).
+imagePullSecrets: []
+
+api:
+  # -- Backend image (Django + gunicorn).
+  image:
+    repository: ghcr.io/avoid-ashraful/creditmate-ai-be
+    tag: local
+    pullPolicy: IfNotPresent
+  # -- API replicas (HPA overrides this when autoscaling.api.enabled).
+  replicas: 2
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { cpu: "1", memory: 768Mi }
+  # -- Gunicorn workers per pod.
+  gunicornWorkers: 3
+
+frontend:
+  # -- Frontend image (React build served by unprivileged nginx on port 3000).
+  image:
+    repository: ghcr.io/avoid-ashraful/creditmate-ai-fe
+    tag: local
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+
+celery:
+  worker:
+    # -- Worker replicas (KEDA overrides this when keda.enabled).
+    replicas: 2
+    concurrency: 2
+    resources:
+      requests: { cpu: 250m, memory: 384Mi }
+      limits: { cpu: "1", memory: 768Mi }
+  beat:
+    # Beat is hard-coded to exactly 1 replica with Recreate strategy in the
+    # template: two beats would enqueue every scheduled task twice.
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 250m, memory: 256Mi }
+
+# -- Non-secret runtime configuration, rendered into the creditmate-config
+# ConfigMap. Keys are the REAL variable names read by
+# creditmate-ai-be/credit_mate_ai/settings.py (os.getenv), verified 2026-11-11.
+config:
+  environment: local            # ENVIRONMENT (production enforces SECRET_KEY/ALLOWED_HOSTS in code)
+  debug: "False"                # DEBUG
+  allowedHosts: "creditmate.localhost"   # ALLOWED_HOSTS (comma separated)
+  frontendUrl: "https://creditmate.localhost"  # FRONTEND_URL
+  corsAllowedOrigins: "https://creditmate.localhost"   # CORS_ALLOWED_ORIGINS
+  csrfTrustedOrigins: "https://creditmate.localhost"   # CSRF_TRUSTED_ORIGINS
+  dbName: creditmate_db         # DB_NAME
+  dbUser: creditmate            # DB_USER
+  dbHost: ""                    # DB_HOST — empty = in-cluster Postgres service when postgres.enabled
+  dbPort: "5432"                # DB_PORT
+  redisHost: ""                 # empty = in-cluster Redis service when redis.enabled
+  redisCacheDb: "1"             # REDIS_CACHE_URL database index
+  celeryBrokerDb: "0"           # CELERY_BROKER_URL / CELERY_RESULT_BACKEND database index
+  celeryQueue: celery           # default Celery queue name (KEDA list name)
+  searchEnabled: "False"        # SEARCH_ENABLED (Elasticsearch stays off locally, as today)
+  searchUrl: "http://127.0.0.1:19200"  # SEARCH_URL
+  logLevel: INFO                # LOG_LEVEL
+  metricsAllowedIps: "127.0.0.1"  # METRICS_ALLOWED_IPS (Prometheus in-cluster uses token instead)
+  # -- Feature flags for the six-capability programme; all default off.
+  eventStreamingEnabled: "False"  # EVENT_STREAMING_ENABLED
+  vectorSearchEnabled: "False"    # VECTOR_SEARCH_ENABLED
+  advisorEnabled: "False"         # ADVISOR_ENABLED
+  # -- Extra ConfigMap entries (key: value), for settings added later.
+  extra: {}
+
+# -- Backend Secret handling. Exactly one mode should be active:
+# 1) secrets.create=true renders a Secret from secrets.data (LOCAL ONLY —
+#    values come from the git-ignored values-local-secrets.yaml).
+# 2) externalSecrets.enabled=true renders an ExternalSecret (staging/prod).
+# 3) both false: pods reference secrets.existingSecret, created out of band.
+secrets:
+  create: false
+  existingSecret: creditmate-backend-secrets
+  # -- stringData for the rendered Secret. Keys read by settings.py / providers:
+  # SECRET_KEY, DB_PASSWORD, GEMINI_API_KEY, OPENROUTER_API_KEY, SENTRY_DSN,
+  # METRICS_TOKEN. NEVER put real values in a committed file.
+  data: {}
+
+externalSecrets:
+  enabled: false
+  clusterSecretStore: ""        # ClusterSecretStore name (per-cluster platform value)
+  secretPath: creditmate/local/backend  # remote key, layout creditmate/<env>/backend
+  refreshInterval: 1h
+
+# -- First-party local Postgres (StatefulSet). Local/dev ONLY: single instance,
+# no HA, no backup story. Staging/production set enabled=false and point
+# config.dbHost at a managed Postgres 17 (+ pgvector) instance.
+postgres:
+  enabled: true
+  image: pgvector/pgvector:pg17   # Postgres 17 + pgvector (Capability 4 prerequisite)
+  database: creditmate_db
+  username: creditmate
+  # Local-dev-only password; MUST match secrets.data.DB_PASSWORD when the
+  # chart also renders the backend Secret. Override in values-local-secrets.yaml.
+  password: "local-dev-only-change-me"
+  storage: 5Gi
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+# -- First-party local Redis (StatefulSet, appendonly). Local/dev ONLY.
+# Staging/production set enabled=false and point config.redisHost externally.
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: 1Gi
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+ingress:
+  enabled: true
+  className: nginx
+  host: creditmate.localhost
+  clusterIssuer: creditmate-ca-issuer   # cert-manager ClusterIssuer (created by scripts/cluster-up.sh locally)
+  tlsSecretName: creditmate-tls
+  # -- ingress-nginx annotations carried over from k8s/base/ingress.yaml.
+  rateLimitRps: "20"
+  proxyBodySize: 10m
+  modSecurity: true   # requires ingress-nginx built/configured with ModSecurity (staging/prod); harmless annotation locally
+
+autoscaling:
+  api:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    cpuUtilization: 70
+    memoryUtilization: 80
+  frontend:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    cpuUtilization: 70
+    memoryUtilization: 80
+
+# -- KEDA queue-based scaling for the Celery worker (Redis list length).
+# When enabled, no CPU HPA is rendered for the worker: queue depth is the
+# honest scaling signal. Requires KEDA (installed by scripts/cluster-up.sh).
+keda:
+  enabled: true
+  minReplicaCount: 1
+  maxReplicaCount: 6
+  pollingInterval: 15      # seconds
+  cooldownPeriod: 60       # seconds
+  queueLengthTarget: "10"  # tasks per worker pod
+
+pdb:
+  enabled: true
+  maxUnavailable: 1
+
+networkPolicy:
+  enabled: true
+  # -- Namespaces allowed to reach the workloads through the ingress / scrape.
+  ingressNamespace: ingress-nginx
+  monitoringNamespace: monitoring
+  kedaNamespace: keda
+
+migrate:
+  enabled: true
+  backoffLimit: 2
+
+# -- Optional local seed Job (post-install hook). Command mirrors the BE
+# project's verified local seed fixture; disable anywhere but local.
+seed:
+  enabled: false
+  command: ["/app/.venv/bin/python", "manage.py", "loaddata", "all_banks.json"]
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  prometheusRule:
+    # Renders monitoring/prometheus/rules/* (alerts + recording + data-quality)
+    # as one PrometheusRule for kube-prometheus-stack.
+    enabled: true
+  grafanaDashboards:
+    # Provisions monitoring/grafana/dashboards/*.json (copied into
+    # files/dashboards/) as ConfigMaps labelled for the Grafana sidecar.
+    enabled: true

@@ -1,0 +1,45 @@
+# Staging values — EXTERNAL managed Postgres/Redis (as the Kustomize overlays
+# assumed), secrets via External Secrets Operator. No secret values here:
+# set externalSecrets.clusterSecretStore for the target cluster before use.
+
+config:
+  environment: staging
+  debug: "False"
+  allowedHosts: "staging.creditmate.ai"
+  frontendUrl: "https://staging.creditmate.ai"
+  corsAllowedOrigins: "https://staging.creditmate.ai"
+  csrfTrustedOrigins: "https://staging.creditmate.ai"
+  dbHost: "staging-postgres.internal"     # managed Postgres 17 (+ pgvector)
+  redisHost: "staging-redis.internal"     # managed Redis 7
+  searchEnabled: "False"
+  searchUrl: "https://staging-elasticsearch.internal:9200"
+
+api:
+  image: { tag: "staging" }
+frontend:
+  image: { tag: "staging" }
+
+secrets:
+  create: false
+
+externalSecrets:
+  enabled: true
+  clusterSecretStore: "creditmate-staging-store"  # ClusterSecretStore created by the platform team per cluster
+  secretPath: creditmate/staging/backend
+
+postgres: { enabled: false }
+redis: { enabled: false }
+
+ingress:
+  host: staging.creditmate.ai
+  clusterIssuer: letsencrypt-prod
+
+autoscaling:
+  api: { minReplicas: 1, maxReplicas: 3 }
+  frontend: { minReplicas: 1, maxReplicas: 3 }
+
+keda:
+  maxReplicaCount: 3
+
+seed:
+  enabled: false

@@ -1,0 +1,8 @@
+CreditMate installed in namespace {{ .Release.Namespace }}.
+
+  App:        https://{{ .Values.ingress.host }}  (API under /api, readiness /api/readyz/)
+  Postgres:   {{ if .Values.postgres.enabled }}in-cluster ({{ include "creditmate.postgresName" . }}){{ else }}external ({{ .Values.config.dbHost }}){{ end }}
+  Redis:      {{ if .Values.redis.enabled }}in-cluster ({{ include "creditmate.redisName" . }}){{ else }}external ({{ .Values.config.redisHost }}){{ end }}
+  Secrets:    {{ if .Values.externalSecrets.enabled }}ExternalSecret (path {{ .Values.externalSecrets.secretPath }}){{ else if .Values.secrets.create }}chart-rendered (LOCAL ONLY){{ else }}pre-created Secret {{ .Values.secrets.existingSecret }}{{ end }}
+  Rollback:   helm history creditmate -n {{ .Release.Namespace }}  /  helm rollback creditmate <REV> -n {{ .Release.Namespace }}
+              (drill: docs/runbooks/k8s-rollback.md)
