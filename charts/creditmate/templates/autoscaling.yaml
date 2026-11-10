@@ -1,0 +1,81 @@
+{{- if .Values.autoscaling.api.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "creditmate.apiName" . }}
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: {{ include "creditmate.apiName" . }} }
+  minReplicas: {{ .Values.autoscaling.api.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.api.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.autoscaling.api.cpuUtilization }} }
+    - type: Resource
+      resource:
+        name: memory
+        target: { type: Utilization, averageUtilization: {{ .Values.autoscaling.api.memoryUtilization }} }
+{{- end }}
+{{- if .Values.autoscaling.frontend.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "creditmate.frontendName" . }}
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: {{ include "creditmate.frontendName" . }} }
+  minReplicas: {{ .Values.autoscaling.frontend.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.frontend.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.autoscaling.frontend.cpuUtilization }} }
+    - type: Resource
+      resource:
+        name: memory
+        target: { type: Utilization, averageUtilization: {{ .Values.autoscaling.frontend.memoryUtilization }} }
+{{- end }}
+{{- if .Values.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "creditmate.apiName" . }}
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "creditmate.frontendName" . }}
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.frontendName" . }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "creditmate.workerName" . }}
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.workerName" . }}
+{{- end }}

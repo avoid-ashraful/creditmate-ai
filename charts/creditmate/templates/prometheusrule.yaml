@@ -1,0 +1,14 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheusRule.enabled }}
+# All rule groups from monitoring/prometheus/rules/ (alerts + recording +
+# data-quality), stored un-templated under files/ because alert annotations
+# contain Prometheus' own brace templating.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: creditmate-rules
+  labels:
+    release: kube-prometheus-stack
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+{{ .Files.Get "files/rules-groups.yaml" | indent 2 }}
+{{- end }}

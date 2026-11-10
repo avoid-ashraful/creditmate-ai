@@ -1,0 +1,52 @@
+# Production values — EXTERNAL managed Postgres/Redis, secrets via External
+# Secrets Operator, higher replica floors. Image tags are set by the release
+# pipeline (immutable git SHA), never by hand. No secret values here.
+#
+# NOTE: deploying production is NOT authorised by the six-capability plan;
+# these values exist so the chart is complete and render-tested.
+
+config:
+  environment: production
+  debug: "False"
+  allowedHosts: "creditmate.ai,www.creditmate.ai"
+  frontendUrl: "https://creditmate.ai"
+  corsAllowedOrigins: "https://creditmate.ai,https://www.creditmate.ai"
+  csrfTrustedOrigins: "https://creditmate.ai,https://www.creditmate.ai"
+  dbHost: "production-postgres.internal"     # managed Postgres 17 (+ pgvector)
+  redisHost: "production-redis.internal"     # managed Redis 7
+  searchEnabled: "True"
+  searchUrl: "https://production-elasticsearch.internal:9200"
+
+api:
+  image: { tag: "production" }   # release pipeline overrides with the git SHA tag
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { cpu: "2", memory: 1Gi }
+frontend:
+  image: { tag: "production" }
+
+secrets:
+  create: false
+
+externalSecrets:
+  enabled: true
+  clusterSecretStore: "creditmate-production-store"  # ClusterSecretStore created by the platform team per cluster
+  secretPath: creditmate/production/backend
+
+postgres: { enabled: false }
+redis: { enabled: false }
+
+ingress:
+  host: creditmate.ai
+  clusterIssuer: letsencrypt-prod
+
+autoscaling:
+  api: { minReplicas: 3, maxReplicas: 12 }
+  frontend: { minReplicas: 3, maxReplicas: 10 }
+
+keda:
+  minReplicaCount: 2
+  maxReplicaCount: 8
+
+seed:
+  enabled: false
