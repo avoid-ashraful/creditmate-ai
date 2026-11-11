@@ -1,0 +1,30 @@
+suite: celery worker replicas vs KEDA ownership
+templates:
+  - templates/celery-worker.yaml
+tests:
+  - it: omits spec.replicas while KEDA owns scaling (keda enabled by default)
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: creditmate-celery-worker
+      - isNull:
+          path: spec.replicas
+
+  - it: restores the static replica count when keda is disabled
+    set:
+      keda.enabled: false
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 2
+
+  - it: honours a custom static replica count when keda is disabled
+    set:
+      keda.enabled: false
+      celery.worker.replicas: 4
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 4

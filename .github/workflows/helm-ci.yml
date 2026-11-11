@@ -1,0 +1,78 @@
+name: Helm chart CI
+
+# Validates charts/creditmate beyond what ci.yml's infrastructure job
+# covers (that job validates the Kustomize manifests under k8s/):
+#   1. helm lint for the base values and every environment values file
+#   2. helm template renders for local/staging/production, schema-checked
+#      with kubeconform (strict; CRDs without published schemas — KEDA,
+#      External Secrets, Prometheus — are skipped, mirroring the chart's
+#      original validation: local 28 valid / 3 skipped, staging and
+#      production 20 valid / 4 skipped)
+#   3. helm-unittest suites in charts/creditmate/tests/ covering the
+#      chart's real conditionals (HPA on/off, KEDA ScaledObject, worker
+#      replicas ownership, ingress TLS/ModSecurity annotations, beat
+#      singleton, secret modes)
+#
+# chart-testing (ct lint) is intentionally NOT used: it is designed for
+# chart-releaser monorepos (version-bump enforcement against a base
+# branch) and adds a Python toolchain for one chart; helm lint +
+# helm-unittest cover the same ground here.
+#
+# Tool versions are pinned to what this workflow was validated against
+# locally: Helm 3.16.3, helm-unittest 0.7.2 (the newest plugin line that
+# works with Helm 3.16), kubeconform 0.6.7 (same as ci.yml).
+
+on:
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'charts/**'
+      - '.github/workflows/helm-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helm-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  KUBECONFORM_VERSION: 0.6.7
+  KUBECONFORM_SHA256: 95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73
+  HELM_UNITTEST_VERSION: 0.7.2
+
+jobs:
+  helm:
+    name: lint, render, schema-check and unit-test the chart
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+        with:
+          version: v3.16.3
+      - name: Install kubeconform (pinned, checksum-verified)
+        run: |
+          curl -sSLo /tmp/kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  /tmp/kubeconform.tar.gz" | sha256sum -c -
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+      - name: Install helm-unittest plugin (pinned)
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version "v${HELM_UNITTEST_VERSION}"
+      - name: helm lint (base + all environment values files)
+        run: |
+          for f in values.yaml values-local.yaml values-staging.yaml values-production.yaml; do
+            echo "== helm lint -f charts/creditmate/$f =="
+            helm lint charts/creditmate -f "charts/creditmate/$f"
+          done
+      - name: helm template + kubeconform (local, staging, production)
+        run: |
+          for env in local staging production; do
+            echo "== render: $env =="
+            helm template creditmate charts/creditmate -f "charts/creditmate/values-$env.yaml" \
+              | kubeconform -strict -ignore-missing-schemas -summary
+          done
+      - name: helm unittest
+        run: helm unittest charts/creditmate

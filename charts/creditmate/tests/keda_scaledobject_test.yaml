@@ -1,0 +1,55 @@
+suite: KEDA ScaledObject for queue-based worker scaling
+templates:
+  - templates/keda-scaledobject.yaml
+tests:
+  - it: renders a redis ScaledObject for the worker when keda is enabled (default)
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ScaledObject
+      - equal:
+          path: metadata.name
+          value: creditmate-celery-worker
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: creditmate-celery-worker
+      - equal:
+          path: spec.minReplicaCount
+          value: 1
+      - equal:
+          path: spec.maxReplicaCount
+          value: 6
+      - equal:
+          path: spec.triggers[0].type
+          value: redis
+      - equal:
+          path: spec.triggers[0].metadata.listName
+          value: celery
+      - equal:
+          path: spec.triggers[0].metadata.listLength
+          value: "10"
+
+  - it: scales on the configured queue and target
+    set:
+      config.celeryQueue: jobs
+      keda.queueLengthTarget: "25"
+      keda.maxReplicaCount: 10
+    asserts:
+      - equal:
+          path: spec.triggers[0].metadata.listName
+          value: jobs
+      - equal:
+          path: spec.triggers[0].metadata.listLength
+          value: "25"
+      - equal:
+          path: spec.maxReplicaCount
+          value: 10
+
+  - it: renders nothing when keda is disabled
+    set:
+      keda.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

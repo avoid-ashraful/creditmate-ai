@@ -1,0 +1,91 @@
+suite: autoscaling (API/frontend HPAs and PDBs)
+templates:
+  - templates/autoscaling.yaml
+tests:
+  - it: renders API and frontend HPAs with the configured bounds by default
+    asserts:
+      - hasDocuments:
+          count: 5 # 2 HPAs + 3 PDBs (pdb.enabled defaults to true)
+      - equal:
+          path: kind
+          value: HorizontalPodAutoscaler
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: creditmate-backend
+        documentIndex: 0
+      - equal:
+          path: spec.minReplicas
+          value: 2
+        documentIndex: 0
+      - equal:
+          path: spec.maxReplicas
+          value: 8
+        documentIndex: 0
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: creditmate-backend
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: creditmate-frontend
+        documentIndex: 1
+      - equal:
+          path: spec.maxReplicas
+          value: 6
+        documentIndex: 1
+
+  - it: honours custom HPA bounds from values
+    set:
+      autoscaling.api.minReplicas: 3
+      autoscaling.api.maxReplicas: 12
+      autoscaling.api.cpuUtilization: 55
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 3
+        documentIndex: 0
+      - equal:
+          path: spec.maxReplicas
+          value: 12
+        documentIndex: 0
+      - equal:
+          path: spec.metrics[0].resource.target.averageUtilization
+          value: 55
+        documentIndex: 0
+
+  - it: omits the API HPA when api autoscaling is disabled
+    set:
+      autoscaling.api.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 4 # frontend HPA + 3 PDBs
+      - equal:
+          path: metadata.name
+          value: creditmate-frontend
+        documentIndex: 0
+
+  - it: renders exactly three PDBs when pdb is enabled
+    set:
+      autoscaling.api.enabled: false
+      autoscaling.frontend.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: kind
+          value: PodDisruptionBudget
+        documentIndex: 0
+      - equal:
+          path: spec.maxUnavailable
+          value: 1
+        documentIndex: 0
+
+  - it: renders nothing when autoscaling and pdb are all disabled
+    set:
+      autoscaling.api.enabled: false
+      autoscaling.frontend.enabled: false
+      pdb.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

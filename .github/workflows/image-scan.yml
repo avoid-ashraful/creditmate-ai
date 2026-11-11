@@ -1,0 +1,146 @@
+name: Image scan (Trivy)
+
+# Two layers of Trivy scanning (ci.yml already BUILDS both images on push
+# and publishes them to GHCR on version tags; nothing scanned them until
+# now):
+#
+# 1. config-scan — misconfiguration scan of the Helm chart and both
+#    Dockerfiles. Runs on PRs that touch those paths, weekly, and on
+#    demand. Gates on CRITICAL,HIGH. The only accepted findings are the
+#    individually documented entries in .trivyignore.yaml (chart) and
+#    .trivyignore-fe.yaml (frontend Dockerfile) — see those files.
+#    Scoping note: the scan covers charts/ and the two submodule
+#    Dockerfiles only, NOT the whole tree — the deprecated k8s/
+#    Kustomize manifests and the staging compose file carry their own
+#    pre-existing findings and are out of scope for this gate.
+#
+# 2. ghcr-scan — vulnerability scan of the images actually published to
+#    GHCR (ghcr.io/avoid-ashraful/creditmate-ai-backend / -frontend, the
+#    names ci.yml's container-build job publishes under). Images are only
+#    published on version-tag pushes, so this job runs on the weekly
+#    schedule (and on demand): it resolves the newest v* tag that has a
+#    published image and scans it, gating on CRITICAL,HIGH OS+library
+#    vulnerabilities. If no published image exists yet, the job succeeds
+#    with a notice instead of failing — publication state is not a
+#    vulnerability. (A build-and-scan-in-one-job design was rejected:
+#    ci.yml already proves the images build on every push; rescanning
+#    what was actually published is the signal that matters.)
+
+on:
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'creditmate-ai-be'
+      - 'creditmate-ai-fe'
+      - 'charts/**'
+      - '.trivyignore.yaml'
+      - '.trivyignore-fe.yaml'
+      - '.github/workflows/image-scan.yml'
+  schedule:
+    # Mondays 05:41 UTC, after the secret scan's full-history run.
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-scan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  config-scan:
+    name: Trivy config scan (chart + Dockerfiles)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Submodule checkouts are needed to reach the Dockerfiles.
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+      - name: Scan the Helm chart
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: charts/creditmate
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          trivyignores: .trivyignore.yaml
+          hide-progress: true
+      - name: Scan the backend (Dockerfile)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: creditmate-ai-be
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          trivyignores: .trivyignore.yaml
+          hide-progress: true
+      - name: Scan the frontend (Dockerfile)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: creditmate-ai-fe
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          # FE-only ignore file: its single entry (DS-0002) must not
+          # apply to the backend scan. See the file for details.
+          trivyignores: .trivyignore-fe.yaml
+          hide-progress: true
+
+  ghcr-scan:
+    name: Trivy scan of published image (${{ matrix.component }})
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: backend
+            image: ghcr.io/avoid-ashraful/creditmate-ai-backend
+          - component: frontend
+            image: ghcr.io/avoid-ashraful/creditmate-ai-frontend
+    steps:
+      - name: Login to GHCR (read-only scan)
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Resolve newest published image tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          IMAGE: ${{ matrix.image }}
+        run: |
+          ref=""
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            if docker manifest inspect "${IMAGE}:${tag}" >/dev/null 2>&1; then
+              ref="${IMAGE}:${tag}"
+              break
+            fi
+          done < <(gh api "repos/${REPO}/tags?per_page=10" --jq '.[].name | select(startswith("v"))')
+          if [ -z "$ref" ]; then
+            echo "No published image found for ${IMAGE} under any recent v* tag; nothing to scan." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Scanning published image: ${ref}" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Scan published image
+        if: steps.resolve.outputs.found == 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.resolve.outputs.ref }}
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          hide-progress: true

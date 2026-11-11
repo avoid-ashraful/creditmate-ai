@@ -1,0 +1,32 @@
+suite: celery beat singleton guarantees
+templates:
+  - templates/celery-beat.yaml
+tests:
+  - it: runs exactly one replica with the Recreate strategy
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Deployment
+      - equal:
+          path: metadata.name
+          value: creditmate-celery-beat
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+
+  - it: starts the celery beat command from the backend image
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: beat
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: credit_mate_ai
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: "^ghcr\\.io/avoid-ashraful/creditmate-ai-be:"
