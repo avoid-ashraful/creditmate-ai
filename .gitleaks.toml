@@ -1,0 +1,21 @@
+# Gitleaks configuration for the CreditMate umbrella repo.
+# Extends the built-in rule set; the allowlist below contains only
+# verified false positives (no real credentials — see the comment on
+# each entry). Used by .github/workflows/secret-scan.yml.
+
+title = "CreditMate umbrella"
+
+[extend]
+useDefault = true
+
+# The staging compose healthcheck authenticates to Elasticsearch with
+# `curl -u elastic:$$ELASTIC_PASSWORD`. `$$` is Compose's escape for a
+# literal `$`, i.e. the container expands the ELASTIC_PASSWORD environment
+# variable at runtime (itself injected from the host environment, see the
+# `environment:` block in the same file). There is no literal credential
+# in the repo; gitleaks' curl-auth-user rule cannot tell the difference.
+[[allowlists]]
+description = "docker-compose.staging.yml healthcheck uses $$ELASTIC_PASSWORD, a Compose-escaped env-var reference, not a literal credential"
+matchCondition = "AND"
+regexes = ['''^\$\$ELASTIC_PASSWORD$''']
+paths = ['''docker-compose\.staging\.yml''']

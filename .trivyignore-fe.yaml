@@ -1,0 +1,18 @@
+# Trivy misconfiguration exceptions for the FRONTEND Dockerfile scan only.
+#
+# This file is passed exclusively to the `creditmate-ai-fe` scan in the
+# image-scan workflow, so its entries are scoped to that one Dockerfile by
+# construction (Trivy normalises a scanned Dockerfile's reported path to
+# just "Dockerfile", which makes path-scoped entries useless for telling
+# the BE and FE Dockerfiles apart — the BE scan deliberately uses the root
+# .trivyignore.yaml, which does NOT contain this entry).
+
+misconfigurations:
+  # The frontend runtime stage is nginxinc/nginx-unprivileged, which runs
+  # as uid 101 by default; the multi-stage Dockerfile simply has no literal
+  # USER instruction for Trivy to see. Adding an explicit `USER 101` to the
+  # FE Dockerfile is a one-line follow-up in the frontend repo.
+  - id: DS-0002
+    statement: >-
+      Runtime base image nginx-unprivileged already runs as non-root
+      (uid 101); no literal USER instruction exists for the scanner.

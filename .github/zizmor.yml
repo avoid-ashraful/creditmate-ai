@@ -1,0 +1,34 @@
+# zizmor configuration — see .github/workflows/workflow-audit.yml.
+#
+# The gate is: every workflow must be finding-free, EXCEPT for the three
+# audits listed below, which are ignored for the pre-existing ci.yml ONLY.
+# ci.yml predates this audit; its findings are documented follow-up work
+# (tracked in the Tier-1 CI PR). New workflows — and new findings of any
+# other kind in ci.yml — fail the build.
+#
+# Local counts at the time of writing (zizmor 1.32.0, ci.yml):
+#   unpinned-uses   24 findings
+#   artipacked       9 findings
+#   cache-poisoning  8 findings
+rules:
+  # ci.yml references actions by version tag, not commit SHA — a deliberate,
+  # documented choice (see the header comment in ci.yml: "Action references
+  # use version tags because the runner has no verified offline SHA
+  # catalog"). SHA-pinning ci.yml is follow-up work; the NEW workflows in
+  # this repo are all SHA-pinned and stay that way.
+  unpinned-uses:
+    ignore:
+      - ci.yml
+  # ci.yml's actions/checkout steps do not set persist-credentials: false.
+  # The token is needed for recursive private-submodule fetches in several
+  # jobs; tightening this per-job is follow-up work.
+  artipacked:
+    ignore:
+      - ci.yml
+  # setup-node/actions/cache are used in jobs of a workflow that can also
+  # publish artifacts (frontend build upload, tagged image builds). The
+  # cache keys are content-hashed from lockfiles; reviewing whether the
+  # publishing jobs need cache isolation is follow-up work.
+  cache-poisoning:
+    ignore:
+      - ci.yml

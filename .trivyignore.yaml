@@ -1,0 +1,31 @@
+# Trivy misconfiguration exceptions for the umbrella repo.
+#
+# Each entry is a single, scoped, pre-existing finding that the Tier-1
+# image-scan workflow would otherwise gate on (severity CRITICAL,HIGH).
+# They are documented here instead of being fixed in this PR because the
+# fixes belong to the chart/FE follow-up work; everything NOT listed here
+# still fails the build. Re-evaluate whenever the listed files change.
+
+misconfigurations:
+  # The chart's local-only data services (Redis and Postgres StatefulSets;
+  # both are disabled in staging/production, which use managed instances)
+  # set allowPrivilegeEscalation=false and drop ALL capabilities, but —
+  # unlike the app workloads, which use the shared
+  # creditmate.containerSecurityContext helper — do not set
+  # readOnlyRootFilesystem. Both write to their data volumes, and Postgres
+  # in particular also expects writable socket/temp paths, so making the
+  # root filesystems read-only is a chart change that must be verified
+  # against a live cluster before it ships. It is tracked as chart
+  # follow-up work rather than bundled into the CI PR that found it.
+  - id: KSV-0014
+    paths:
+      - charts/creditmate/templates/redis.yaml
+      - templates/redis.yaml
+      - charts/creditmate/templates/postgres.yaml
+      - templates/postgres.yaml
+    statement: >-
+      Local-only Redis/Postgres lack readOnlyRootFilesystem; tracked as
+      chart follow-up (needs live-cluster verification). All other
+      container hardening is present.
+
+
