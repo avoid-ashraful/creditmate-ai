@@ -1,0 +1,27 @@
+{{- if .Values.keda.enabled }}
+# Queue-based Celery scaling: scale workers on the length of the Redis list
+# backing the Celery queue (broker DB from config.celeryBrokerDb).
+# Requires KEDA (scripts/cluster-up.sh installs it). When this is enabled the
+# worker Deployment carries no replicas field and no worker HPA is rendered.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "creditmate.workerName" . }}
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "creditmate.workerName" . }}
+  pollingInterval: {{ .Values.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.keda.cooldownPeriod }}
+  minReplicaCount: {{ .Values.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
+  triggers:
+    - type: redis
+      metadata:
+        address: {{ printf "%s:6379" (include "creditmate.redisHost" .) | quote }}
+        listName: {{ .Values.config.celeryQueue | quote }}
+        listLength: {{ .Values.keda.queueLengthTarget | quote }}
+        databaseIndex: {{ .Values.config.celeryBrokerDb | quote }}
+        enableTLS: "false"
+{{- end }}

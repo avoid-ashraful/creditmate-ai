@@ -1,3 +1,10 @@
+> **DEPRECATED — superseded by the Helm chart in `charts/creditmate/`.**
+> New deploys use the chart (see `charts/creditmate/README.md` and
+> `scripts/cluster-up.sh`). These Kustomize manifests are kept for one
+> release as reference only and will be removed afterwards. The chart also
+> closes this directory's documented gaps: migrations run as a hook Job,
+> NetworkPolicies exist, and local Postgres/Redis are provided in-cluster.
+
 # Kubernetes manifests
 
 Kustomize layout for the Creditmate platform (frontend, backend, Celery).

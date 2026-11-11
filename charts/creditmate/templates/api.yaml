@@ -1,0 +1,89 @@
+# Backend API: Django served by gunicorn. Liveness /api/healthz/ (process
+# only), readiness /api/readyz/ (DB + cache + ES when enabled) — both
+# implemented in creditmate-ai-be/credit_mate_ai/health.py.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "creditmate.apiName" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+    app.kubernetes.io/component: api
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.api.enabled }}
+  replicas: {{ .Values.api.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: creditmate
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "creditmate.podSecurityContext" . | nindent 6 }}
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: backend
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command:
+            - /app/.venv/bin/gunicorn
+            - credit_mate_ai.wsgi:application
+            - --bind=0.0.0.0:8000
+            - {{ printf "--workers=%d" (int .Values.api.gunicornWorkers) }}
+            - --timeout=30
+            - --graceful-timeout=30
+            - --access-logfile=-
+          ports:
+            - { name: http, containerPort: 8000 }
+          {{- include "creditmate.backendEnvFrom" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          startupProbe:
+            httpGet: { path: /api/healthz/, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /api/readyz/, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /api/healthz/, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec: { command: ["sh", "-c", "sleep 5"] }
+          {{- include "creditmate.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "creditmate.apiName" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+    app.kubernetes.io/component: api
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+  ports:
+    - { name: http, port: 80, targetPort: http }

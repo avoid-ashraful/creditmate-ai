@@ -1,0 +1,221 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default-deny for every CreditMate pod (closes the old Kustomize gap).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creditmate-default-deny
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: creditmate
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    # DNS only; every other flow is allowed by a component policy below.
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Frontend: in from ingress-nginx, out to the API.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creditmate-frontend
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.frontendName" . }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressNamespace }} }
+      ports:
+        - { protocol: TCP, port: 3000 }
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: {{ include "creditmate.apiName" . }} }
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+# API: in from ingress-nginx + frontend + Prometheus; out to Postgres, Redis
+# and HTTPS (managed ES, LLM providers) — external egress is port-scoped.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creditmate-backend
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressNamespace }} }
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: {{ include "creditmate.frontendName" . }} }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }} }
+      ports:
+        - { protocol: TCP, port: 8000 }
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    {{- if .Values.postgres.enabled }}
+    - to:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: {{ include "creditmate.postgresName" . }} }
+      ports:
+        - { protocol: TCP, port: 5432 }
+    {{- end }}
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: {{ include "creditmate.redisName" . }} }
+      ports:
+        - { protocol: TCP, port: 6379 }
+    {{- end }}
+    - ports:
+        - { protocol: TCP, port: 443 }
+---
+# Celery worker + beat (+ migrate/seed Jobs, which share the backend env):
+# no ingress; out to Postgres, Redis and HTTPS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creditmate-celery
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - {{ include "creditmate.workerName" . }}
+          - {{ include "creditmate.beatName" . }}
+          - {{ printf "%s-migrate" (include "creditmate.apiName" .) }}
+          - {{ printf "%s-seed" (include "creditmate.apiName" .) }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    {{- if .Values.postgres.enabled }}
+    - to:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: {{ include "creditmate.postgresName" . }} }
+      ports:
+        - { protocol: TCP, port: 5432 }
+    {{- end }}
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: {{ include "creditmate.redisName" . }} }
+      ports:
+        - { protocol: TCP, port: 6379 }
+    {{- end }}
+    - ports:
+        - { protocol: TCP, port: 443 }
+{{- if .Values.postgres.enabled }}
+---
+# Postgres: in only from the backend-side pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creditmate-postgres
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.postgresName" . }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - {{ include "creditmate.apiName" . }}
+                  - {{ include "creditmate.workerName" . }}
+                  - {{ include "creditmate.beatName" . }}
+                  - {{ printf "%s-migrate" (include "creditmate.apiName" .) }}
+                  - {{ printf "%s-seed" (include "creditmate.apiName" .) }}
+      ports:
+        - { protocol: TCP, port: 5432 }
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+{{- end }}
+{{- if .Values.redis.enabled }}
+---
+# Redis: in only from the backend-side pods, plus the KEDA operator
+# namespace (its metrics API must read the Celery list length to scale).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creditmate-redis
+  labels:
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.redisName" . }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - {{ include "creditmate.apiName" . }}
+                  - {{ include "creditmate.workerName" . }}
+                  - {{ include "creditmate.beatName" . }}
+      ports:
+        - { protocol: TCP, port: 6379 }
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: {{ .Values.networkPolicy.kedaNamespace }} }
+      ports:
+        - { protocol: TCP, port: 6379 }
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+{{- end }}
+{{- end }}

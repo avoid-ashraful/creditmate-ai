@@ -1,0 +1,39 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+# Scrapes the API's token/IP-gated /metrics via the Prometheus Operator.
+# The BE /metrics endpoint also allows in-cluster Prometheus by IP config;
+# METRICS_TOKEN in the backend Secret is the preferred path where configured.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "creditmate.apiName" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+    release: kube-prometheus-stack
+    {{- include "creditmate.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "creditmate.apiName" . }}
+  namespaceSelector:
+    matchNames: [{{ .Release.Namespace }}]
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
+{{- end }}
+{{- if and .Values.monitoring.enabled .Values.monitoring.grafanaDashboards.enabled }}
+{{- range $path, $_ := .Files.Glob "files/dashboards/*.json" }}
+---
+# Provisioned Grafana dashboard (source of truth: monitoring/grafana/dashboards/).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "creditmate-dashboard-%s" (base $path | trimSuffix ".json") }}
+  labels:
+    grafana_dashboard: "1"
+    {{- include "creditmate.labels" $ | nindent 4 }}
+data:
+  {{ base $path }}: |
+    {{- $.Files.Get $path | nindent 4 }}
+{{- end }}
+{{- end }}

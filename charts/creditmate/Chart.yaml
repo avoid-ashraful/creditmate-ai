@@ -1,0 +1,15 @@
+apiVersion: v2
+name: creditmate
+description: >-
+  CreditMate AI platform chart: Django API, React frontend (nginx), Celery
+  worker and beat, optional first-party local Postgres (pgvector) and Redis.
+  Replaces the deprecated Kustomize manifests under k8s/.
+type: application
+version: 0.1.0
+appVersion: "local"
+keywords:
+  - creditmate
+  - django
+  - celery
+maintainers:
+  - name: CreditMate AI
