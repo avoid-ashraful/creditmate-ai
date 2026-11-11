@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   # Nightly k6 schedule paused: it needs published images and a seeded stack (see load-tests/README.md).
 
-# Action references use version tags because the runner has no verified offline SHA catalog.
+# Core Actions are pinned to verified upstream release commits (reviewed 2026-10-20).
 # SUBMODULE_TOKEN: create a fine-grained read-only token with Contents: read on each private
 # submodule repository, then add it as the repository secret SUBMODULE_TOKEN. Checkout uses
 # it for recursive private-submodule fetches and falls back to GITHUB_TOKEN for public repos.
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [accounts, saved, reviews, alerts, credit_cards, banks, search, credit_mate_ai]
+        app: [accounts, saved, reviews, alerts, credit_cards, banks, search, credit_mate_ai, common, tests]
     services:
       postgres:
         image: postgres:16
@@ -75,30 +75,32 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/creditmate_81ci
       ELASTICSEARCH_URL: http://127.0.0.1:9200
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-python@v5 # tag used: no verified offline SHA catalog
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
-      - uses: astral-sh/setup-uv@v5 # tag used: no verified offline SHA catalog
+          python-version-file: creditmate-ai-be/.python-version
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.12.10'
       - name: Verify lock and install
         run: |
           uv lock --check
           uv sync --frozen --group dev
       - name: Django checks and migrations
         run: |
-          uv run python manage.py check
-          uv run python manage.py makemigrations --check --dry-run
+          uv run --frozen python manage.py check
+          uv run --frozen python manage.py makemigrations --check --dry-run
       - name: Lint
-        run: uv run flake8 .
+        run: uv run --frozen flake8 .
       - name: Tests with coverage
-        run: uv run pytest "$APP_TEST_PATH" --cov=. --cov-report=term-missing --cov-report=xml:reports/coverage.xml
+        run: uv run --frozen pytest "$APP_TEST_PATH" --cov=. --cov-report=term-missing --cov-report=xml:reports/coverage.xml
         env:
           APP_TEST_PATH: ${{ matrix.app }}
       - name: Validate OpenAPI schema
-        run: uv run python manage.py spectacular --validate --file /tmp/schema.yml
+        run: uv run --frozen python manage.py spectacular --validate --file /tmp/schema.yml
 
   frontend:
     name: Frontend checks, tests, production build
@@ -109,17 +111,19 @@ jobs:
       run:
         working-directory: creditmate-ai-fe
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: '24'
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
-      - run: npm ci --legacy-peer-deps
-      - run: CI=true npx react-scripts test --watchAll=false --maxWorkers=2 --coverage
+      - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+      - run: npm test -- --watchAll=false --maxWorkers=2 --coverage
         name: Jest and coverage
       - run: npm run check-types
       - run: npm run check-lint
@@ -127,7 +131,7 @@ jobs:
       - run: npm run tokens:check
       - run: npm run build
       - run: npm run bundle:budget
-      - uses: actions/upload-artifact@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: frontend-production-build
           path: creditmate-ai-fe/build
@@ -144,19 +148,19 @@ jobs:
       run:
         working-directory: creditmate-ai-fe
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: '24'
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
       - name: Build with mocked API base for e2e
         run: CI=true REACT_APP_API_BASE_URL=http://e2e.invalid/api/v1 REACT_APP_SITE_URL=http://127.0.0.1:4173 REACT_APP_ENABLE_API_LOGGING=false npm run build
-      - uses: actions/cache@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -164,15 +168,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
       - name: Serve production build and run non-visual e2e
-        run: |
-          npx serve -s build -l 4173 > /tmp/creditmate-serve.log 2>&1 &
-          echo $! > /tmp/creditmate-serve.pid
-          npx wait-on http://127.0.0.1:4173
-          npx playwright test --grep-invert '@visual|visual'
+        run: npx playwright test --grep-invert '@visual|visual'
         env:
-          E2E_BASE_URL: http://127.0.0.1:4173
-      - if: always()
-        run: if [ -f /tmp/creditmate-serve.pid ]; then kill "$(cat /tmp/creditmate-serve.pid)"; fi
+          E2E_PORT: '4173'
 
   visual-regression:
     name: Playwright visual regression (optional)
@@ -185,32 +183,27 @@ jobs:
       run:
         working-directory: creditmate-ai-fe
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: '24'
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
       - name: Build with mocked API base for e2e
         run: CI=true REACT_APP_API_BASE_URL=http://e2e.invalid/api/v1 REACT_APP_SITE_URL=http://127.0.0.1:4173 REACT_APP_ENABLE_API_LOGGING=false npm run build
-      - uses: actions/cache@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('creditmate-ai-fe/package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - run: |
-          npx serve -s build -l 4173 > /tmp/creditmate-serve.log 2>&1 &
-          echo $! > /tmp/creditmate-serve.pid
-          npx wait-on http://127.0.0.1:4173
           npx playwright test --grep '@visual|visual'
         env:
-          E2E_BASE_URL: http://127.0.0.1:4173
-      - if: always()
-        run: if [ -f /tmp/creditmate-serve.pid ]; then kill "$(cat /tmp/creditmate-serve.pid)"; fi
+          E2E_PORT: '4173'
 
   security-audit:
     name: npm audit (informational)
@@ -221,16 +214,16 @@ jobs:
       run:
         working-directory: creditmate-ai-fe
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: '24'
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
       - name: Audit and summarize without failing CI
         run: |
           npm audit --json > /tmp/npm-audit.json || true
@@ -245,16 +238,16 @@ jobs:
       run:
         working-directory: creditmate-ai-fe
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: '24'
           cache: npm
           cache-dependency-path: creditmate-ai-fe/package-lock.json
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
       - run: npm run build-storybook
 
   infrastructure:
@@ -263,7 +256,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
@@ -299,7 +292,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
@@ -312,8 +305,8 @@ jobs:
         run: docker compose -f docker-compose.staging.yml down -v
 
   container-build:
-    name: Build images (tagged releases may publish)
-    if: ${{ github.event_name == 'push' }}
+    name: Build images (publish version tags only)
+    if: ${{ github.event_name != 'schedule' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -329,7 +322,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4 # tag used: no verified offline SHA catalog
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
@@ -346,7 +339,8 @@ jobs:
         with:
           context: ${{ matrix.context }}
           push: ${{ startsWith(github.ref, 'refs/tags/') }}
-          tags: ${{ matrix.image }}:${{ github.ref_name }}
+          # Branch names can contain "/" (invalid in a Docker tag); only version tags use the ref name.
+          tags: ${{ matrix.image }}:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('ci-{0}', github.run_id) }}
           # Untagged builds only prove the image builds; tagged releases must set the real URL (empty fails the build).
           build-args: REACT_APP_API_BASE_URL=${{ vars.REACT_APP_API_BASE_URL || secrets.REACT_APP_API_BASE_URL || (!startsWith(github.ref, 'refs/tags/') && 'https://api.example.invalid/api/v1' || '') }}
           provenance: false
